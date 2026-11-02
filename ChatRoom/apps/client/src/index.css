@@ -1,0 +1,76 @@
+
+@import "tailwindcss";
+
+/* Explicit class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --cr-bg: #f5f7ff;
+  --cr-surface: #ffffff;
+  --cr-surface-secondary: #eef2ff;
+  --cr-text: #172033;
+  --cr-text-muted: #64748b;
+  --cr-border: #dde3f0;
+  --cr-primary: #4f46e5;
+  --cr-primary-hover: #4338ca;
+  --cr-outgoing: #2563eb;
+}
+
+.dark {
+  --cr-bg: #090b12;
+  --cr-surface: #12151f;
+  --cr-surface-secondary: #1c2030;
+  --cr-text: #f8fafc;
+  --cr-text-muted: #a0a8bc;
+  --cr-border: #34394b;
+  --cr-primary: #6366f1;
+  --cr-primary-hover: #818cf8;
+  --cr-outgoing: #4f46e5;
+}
+
+/* Expose our semantic colors to Tailwind utilities */
+@theme inline {
+  --color-app-bg: var(--cr-bg);
+  --color-app-surface: var(--cr-surface);
+  --color-app-surface-secondary: var(--cr-surface-secondary);
+  --color-app-text: var(--cr-text);
+  --color-app-text-muted: var(--cr-text-muted);
+  --color-app-border: var(--cr-border);
+  --color-app-primary: var(--cr-primary);
+  --color-app-primary-hover: var(--cr-primary-hover);
+  --color-app-outgoing: var(--cr-outgoing);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--cr-bg);
+  color: var(--cr-text);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+#root {
+  min-height: 100vh;
+}
