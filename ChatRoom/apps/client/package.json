@@ -11,9 +11,11 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@chatroom/shared": "^0.1.0",
     "lucide-react": "^1.66.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

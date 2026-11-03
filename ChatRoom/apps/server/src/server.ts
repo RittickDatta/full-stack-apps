@@ -1,26 +1,37 @@
-import { createServer } from "http";
+
+import { createServer } from "node:http";
 
 import { app } from "./app.js";
 import { env } from "./config/env.js";
+import { createSocketServer } from "./socket/index.js";
 
 const httpServer = createServer(app);
+const io = createSocketServer(httpServer);
 
 httpServer.listen(env.PORT, () => {
-  console.log(`ChatRoom server running at http://localhost:${env.PORT}`);
+  console.log(
+    `ChatRoom server running at http://localhost:${env.PORT}`,
+  );
 
+  console.log(`Socket.IO ready on port ${env.PORT}`);
   console.log(`Environment: ${env.NODE_ENV}`);
 });
 
-function shutdown(signal: string) {
-  console.log(`${signal} received, shutting down server...`);
+let shuttingDown = false;
 
-  httpServer.close((err) => {
-    if (err) {
-      console.error("Error closing HTTP server:", err);
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+
+  shuttingDown = true;
+  console.log(`${signal} received. Shutting down...`);
+
+  io.close((error?: Error) => {
+    if (error) {
+      console.error("Shutdown error:", error);
       process.exitCode = 1;
     }
 
-    process.exit();
+    console.log("Socket.IO and HTTP server closed.");
   });
 }
 

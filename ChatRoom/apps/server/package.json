@@ -16,5 +16,9 @@
     "@types/node": "^24.19.2",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@chatroom/shared": "^0.1.0",
+    "socket.io": "^4.8.4"
   }
 }

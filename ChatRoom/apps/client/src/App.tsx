@@ -1,4 +1,3 @@
-
 import {
   ArrowRight,
   MessageCircle,
@@ -8,6 +7,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { SocketConnectionTest } from "./components/SocketConnectionTest";
 
 const features = [
   {
@@ -59,13 +59,12 @@ function App() {
           </div>
 
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
-            Conversations made{" "}
-            <span className="text-app-primary">simple.</span>
+            Conversations made <span className="text-app-primary">simple.</span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-app-text-muted sm:text-lg">
-            Create a room, share a code, and start chatting.
-            No accounts. No complicated setup.
+            Create a room, share a code, and start chatting. No accounts. No
+            complicated setup.
           </p>
 
           <div className="mt-8 inline-flex items-center gap-2 rounded-xl bg-app-primary px-5 py-3 font-semibold text-white">
@@ -96,6 +95,8 @@ function App() {
         <p className="mt-12 text-center text-sm text-app-text-muted">
           Frontend foundation · RC-002
         </p>
+
+        <SocketConnectionTest />
       </main>
     </div>
   );
