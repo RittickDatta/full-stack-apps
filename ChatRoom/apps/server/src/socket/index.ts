@@ -11,6 +11,18 @@ import type {
 
 import { env } from "../config/env.js";
 
+import {
+  roomRepository,
+} from "../repositories/room-repository.instance.js";
+
+import {
+  RoomService,
+} from "../services/room.service.js";
+
+import {
+  registerRoomHandlers,
+} from "./room.handlers.js";
+
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server<
     ClientToServerEvents,
@@ -24,6 +36,8 @@ export function createSocketServer(httpServer: HttpServer) {
     },
     transports: ["websocket", "polling"],
   });
+
+  const roomService = new RoomService(roomRepository);
 
   io.on("connection", (socket) => {
     console.log(`Socket connected: ${socket.id}`);
@@ -39,14 +53,14 @@ export function createSocketServer(httpServer: HttpServer) {
           ? payload.message.slice(0, 100)
           : "";
 
-      console.log(`Ping from ${socket.id}: ${message}`);
-
       acknowledge({
         success: true,
         message: `Server received: ${message}`,
         receivedAt: new Date().toISOString(),
       });
     });
+
+    registerRoomHandlers(socket, roomService);
 
     socket.on("disconnect", (reason) => {
       console.log(
