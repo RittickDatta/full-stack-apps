@@ -10,8 +10,8 @@
   ],
   "scripts": {
     "dev": "concurrently -k -n client,server \"npm run dev -w @chatroom/client\" \"npm run dev -w @chatroom/server\"",
-    "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build -w @chatroom/shared && npm run build -w @chatroom/server && npm run build -w @chatroom/client",
+    "typecheck": "npm run build -w @chatroom/shared && npm run typecheck -w @chatroom/server && npm run typecheck -w @chatroom/client",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present"

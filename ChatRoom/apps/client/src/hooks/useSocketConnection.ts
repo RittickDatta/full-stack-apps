@@ -1,9 +1,6 @@
-
 import { useEffect, useState } from "react";
 
-import type {
-  ConnectionInfo,
-} from "@chatroom/shared/socket-events";
+import type { ConnectionInfo } from "@chatroom/shared";
 
 import { socket } from "../lib/socket";
 
@@ -14,11 +11,11 @@ export type ConnectionStatus =
   | "error";
 
 export function useSocketConnection() {
-  const [status, setStatus] =
-    useState<ConnectionStatus>("connecting");
+  const [status, setStatus] = useState<ConnectionStatus>("connecting");
 
-  const [connectionInfo, setConnectionInfo] =
-    useState<ConnectionInfo | null>(null);
+  const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo | null>(
+    null,
+  );
 
   const [error, setError] = useState<string | null>(null);
 

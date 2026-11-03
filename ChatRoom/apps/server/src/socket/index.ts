@@ -7,7 +7,7 @@ import type {
   InterServerEvents,
   ServerToClientEvents,
   SocketData,
-} from "@chatroom/shared/socket-events";
+} from "@chatroom/shared";
 
 import { env } from "../config/env.js";
 
