@@ -410,3 +410,100 @@ test("one socket cannot join twice", async () => {
     });
   }
 });
+
+
+test("room events preserve typed acknowledgements", async () => {
+  const httpServer = createServer();
+  const io = new Server(httpServer);
+
+  const repository = new InMemoryRoomRepository();
+  const service = new RoomService(repository);
+
+  io.on("connection", (socket) => {
+    registerRoomHandlers(socket, service);
+  });
+
+  await new Promise((resolve) => {
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = httpServer.address();
+
+  assert.ok(address);
+  assert.notEqual(typeof address, "string");
+
+  const client = createClient(
+    `http://127.0.0.1:${address.port}`,
+    {
+      transports: ["websocket"],
+      reconnection: false,
+    },
+  );
+
+  try {
+    await new Promise((resolve, reject) => {
+      client.once("connect", resolve);
+      client.once("connect_error", reject);
+    });
+
+    const invalid = await client
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: " ",
+      });
+
+    assert.equal(invalid.success, false);
+
+    if (!invalid.success) {
+      assert.equal(
+        invalid.error.code,
+        "INVALID_PAYLOAD",
+      );
+    }
+
+    const created = await client
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: "Alice",
+      });
+
+    assert.equal(created.success, true);
+    if (!created.success) return;
+
+    const started = await client
+      .timeout(5000)
+      .emitWithAck("room:start", {
+        roomCode: created.data.room.code,
+        creatorToken: created.data.creatorToken,
+      });
+
+    assert.equal(started.success, true);
+    if (!started.success) return;
+
+    assert.equal(started.data.room.status, "active");
+
+    const repeated = await client
+      .timeout(5000)
+      .emitWithAck("room:start", {
+        roomCode: created.data.room.code,
+        creatorToken: created.data.creatorToken,
+      });
+
+    assert.equal(repeated.success, false);
+
+    if (!repeated.success) {
+      assert.equal(
+        repeated.error.code,
+        "NOT_AUTHORIZED",
+      );
+    }
+
+    assert.equal(repository.count(), 1);
+  } finally {
+    client.disconnect();
+
+    await new Promise((resolve) => {
+      io.close(resolve);
+    });
+  }
+});
