@@ -14,10 +14,11 @@ import {
 import type {
   AckResult,
   CreateRoomResult,
-  Participant,
-  StartRoomResult,
   JoinRoomResult,
+  Participant,
   RoomMessage,
+  RoomSnapshot,
+  StartRoomResult,
 } from "@chatroom/shared";
 
 import type { RoomRepository } from "../repositories/room.repository.js";
@@ -450,5 +451,50 @@ export class RoomService {
       success: true,
       data: savedMessage,
     };
+  }
+
+  setParticipantPresence(
+    roomCode: string,
+    participantId: string,
+    isConnected: boolean,
+  ): RoomSnapshot | null {
+    const room = this.repository.findByCode(roomCode);
+
+    if (!room || room.status === "closed") {
+      return null;
+    }
+
+    const participant = this.repository.findParticipant(
+      roomCode,
+      participantId,
+    );
+
+    if (!participant) {
+      return null;
+    }
+
+    if (participant.isConnected === isConnected) {
+      return toRoomSnapshot(room);
+    }
+
+    const updatedParticipant = this.repository.updateParticipant(
+      roomCode,
+      participantId,
+      { isConnected },
+    );
+
+    if (!updatedParticipant) {
+      return null;
+    }
+
+    const updatedRoom = this.repository.findByCode(roomCode);
+
+    return updatedRoom ? toRoomSnapshot(updatedRoom) : null;
+  }
+
+  getRoomSnapshot(roomCode: string): RoomSnapshot | null {
+    const room = this.repository.findByCode(roomCode);
+
+    return room ? toRoomSnapshot(room) : null;
   }
 }

@@ -17,6 +17,10 @@ import {
   registerChatHandlers,
 } from "../dist/socket/chat.handlers.js";
 
+import {
+  registerPresenceHandlers,
+} from "../dist/socket/presence.handlers.js";
+
 test("room:create returns a successful acknowledgement", async () => {
   const httpServer = createServer();
 
@@ -821,6 +825,278 @@ test("chat:send cannot write to another room", async () => {
     );
   } finally {
     client.disconnect();
+
+    await new Promise((resolve) => {
+      io.close(resolve);
+    });
+  }
+});
+
+
+test("disconnecting a member broadcasts offline presence", async () => {
+  const httpServer = createServer();
+  const io = new Server(httpServer);
+
+  const repository = new InMemoryRoomRepository();
+  const service = new RoomService(repository);
+
+  io.on("connection", (socket) => {
+    registerRoomHandlers(socket, service);
+    registerPresenceHandlers(socket, service);
+  });
+
+  await new Promise((resolve) => {
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = httpServer.address();
+
+  assert.ok(address);
+  assert.notEqual(typeof address, "string");
+
+  const url = `http://127.0.0.1:${address.port}`;
+
+  const creator = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  const member = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  try {
+    await Promise.all(
+      [creator, member].map(
+        (socket) =>
+          new Promise((resolve, reject) => {
+            if (socket.connected) {
+              resolve();
+              return;
+            }
+
+            socket.once("connect", resolve);
+            socket.once("connect_error", reject);
+          }),
+      ),
+    );
+
+    const created = await creator
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: "Alice",
+      });
+
+    assert.equal(created.success, true);
+    if (!created.success) return;
+
+    const roomCode = created.data.room.code;
+
+    const started = await creator
+      .timeout(5000)
+      .emitWithAck("room:start", {
+        roomCode,
+        creatorToken: created.data.creatorToken,
+      });
+
+    assert.equal(started.success, true);
+
+    const joined = await member
+      .timeout(5000)
+      .emitWithAck("room:join", {
+        roomCode,
+        displayName: "Bob",
+      });
+
+    assert.equal(joined.success, true);
+    if (!joined.success) return;
+
+    const participantId = joined.data.participantId;
+
+    // Register the listener before disconnecting.
+    const offlineEvent = new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Presence update timed out")),
+        5000,
+      );
+
+      const listener = (event) => {
+        const participant = event.room.participants.find(
+          (item) => item.id === participantId,
+        );
+
+        if (!participant || participant.isConnected) {
+          return;
+        }
+
+        clearTimeout(timeout);
+        creator.off("room:updated", listener);
+        resolve(event);
+      };
+
+      creator.on("room:updated", listener);
+    });
+
+    member.disconnect();
+
+    const event = await offlineEvent;
+
+    const offlineParticipant =
+      event.room.participants.find(
+        (item) => item.id === participantId,
+      );
+
+    assert.ok(offlineParticipant);
+    assert.equal(
+      offlineParticipant.displayName,
+      "Bob",
+    );
+    assert.equal(
+      offlineParticipant.isConnected,
+      false,
+    );
+
+    assert.equal(event.room.participantCount, 2);
+
+    const storedParticipant =
+      repository.findParticipant(
+        roomCode,
+        participantId,
+      );
+
+    assert.equal(storedParticipant?.isConnected, false);
+  } finally {
+    creator.disconnect();
+    member.disconnect();
+
+    await new Promise((resolve) => {
+      io.close(resolve);
+    });
+  }
+});
+
+
+test("creator disconnect does not close the room", async () => {
+  const httpServer = createServer();
+  const io = new Server(httpServer);
+
+  const repository = new InMemoryRoomRepository();
+  const service = new RoomService(repository);
+
+  io.on("connection", (socket) => {
+    registerRoomHandlers(socket, service);
+    registerPresenceHandlers(socket, service);
+  });
+
+  await new Promise((resolve) => {
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = httpServer.address();
+
+  assert.ok(address);
+  assert.notEqual(typeof address, "string");
+
+  const url = `http://127.0.0.1:${address.port}`;
+
+  const creator = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  const member = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  try {
+    await Promise.all(
+      [creator, member].map(
+        (socket) =>
+          new Promise((resolve, reject) => {
+            if (socket.connected) return resolve();
+
+            socket.once("connect", resolve);
+            socket.once("connect_error", reject);
+          }),
+      ),
+    );
+
+    const created = await creator
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: "Alice",
+      });
+
+    assert.equal(created.success, true);
+    if (!created.success) return;
+
+    const roomCode = created.data.room.code;
+
+    const started = await creator
+      .timeout(5000)
+      .emitWithAck("room:start", {
+        roomCode,
+        creatorToken: created.data.creatorToken,
+      });
+
+    assert.equal(started.success, true);
+
+    const joined = await member
+      .timeout(5000)
+      .emitWithAck("room:join", {
+        roomCode,
+        displayName: "Bob",
+      });
+
+    assert.equal(joined.success, true);
+    if (!joined.success) return;
+
+    const creatorId = started.data.participantId;
+
+    const presenceEvent = new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Creator presence update timed out")),
+        5000,
+      );
+
+      const listener = (event) => {
+        const participant = event.room.participants.find(
+          (item) => item.id === creatorId,
+        );
+
+        if (!participant || participant.isConnected) {
+          return;
+        }
+
+        clearTimeout(timeout);
+        member.off("room:updated", listener);
+        resolve(event);
+      };
+
+      member.on("room:updated", listener);
+    });
+
+    creator.disconnect();
+
+    const event = await presenceEvent;
+
+    assert.equal(event.room.status, "active");
+
+    const offlineCreator = event.room.participants.find(
+      (item) => item.id === creatorId,
+    );
+
+    assert.equal(offlineCreator?.isConnected, false);
+
+    assert.equal(
+      repository.findByCode(roomCode)?.status,
+      "active",
+    );
+  } finally {
+    creator.disconnect();
+    member.disconnect();
 
     await new Promise((resolve) => {
       io.close(resolve);

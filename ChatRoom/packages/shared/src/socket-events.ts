@@ -80,7 +80,7 @@ export interface ServerToClientEvents {
 
   "participant:left": (event: ParticipantLeftEvent) => void;
 
-  "room:updated": (event: RoomUpdatedEvent) => void;
+  "room:updated": (payload: { room: RoomSnapshot }) => void;
 
   "room:closed": (event: RoomClosedEvent) => void;
 }

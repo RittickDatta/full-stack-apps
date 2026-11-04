@@ -913,3 +913,202 @@ test("cannot send using another room's participant ID", () => {
     "PARTICIPANT_NOT_FOUND",
   );
 });
+
+
+test("marks a participant offline", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const snapshot = service.setParticipantPresence(
+    roomCode,
+    creatorId,
+    false,
+  );
+
+  assert.ok(snapshot);
+
+  const participant = snapshot.participants.find(
+    (item) => item.id === creatorId,
+  );
+
+  assert.equal(participant?.isConnected, false);
+
+  const stored = repository.findParticipant(
+    roomCode,
+    creatorId,
+  );
+
+  assert.equal(stored?.isConnected, false);
+});
+
+
+test("marks an offline participant online", () => {
+  const {
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  service.setParticipantPresence(
+    roomCode,
+    creatorId,
+    false,
+  );
+
+  const snapshot = service.setParticipantPresence(
+    roomCode,
+    creatorId,
+    true,
+  );
+
+  assert.ok(snapshot);
+
+  const participant = snapshot.participants.find(
+    (item) => item.id === creatorId,
+  );
+
+  assert.equal(participant?.isConnected, true);
+});
+
+
+test("does not update presence for unknown participants", () => {
+  const { service, roomCode } = setupActiveRoom();
+
+  const result = service.setParticipantPresence(
+    roomCode,
+    "unknown-participant",
+    false,
+  );
+
+  assert.equal(result, null);
+});
+
+
+test("does not update presence for unknown rooms", () => {
+  const { service } = setup();
+
+  const result = service.setParticipantPresence(
+    "A7K9PQ",
+    "participant-123",
+    false,
+  );
+
+  assert.equal(result, null);
+});
+
+
+test("presence updates preserve participant identity", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const before = repository.findParticipant(
+    roomCode,
+    creatorId,
+  );
+
+  service.setParticipantPresence(
+    roomCode,
+    creatorId,
+    false,
+  );
+
+  const after = repository.findParticipant(
+    roomCode,
+    creatorId,
+  );
+
+  assert.ok(before);
+  assert.ok(after);
+
+  assert.equal(after.id, before.id);
+  assert.equal(after.displayName, before.displayName);
+  assert.equal(after.role, before.role);
+  assert.equal(after.joinedAt, before.joinedAt);
+  assert.equal(after.isConnected, false);
+});
+
+
+test("offline participants remain in the room", () => {
+  const {
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const before = service.getRoomSnapshot(roomCode);
+
+  const after = service.setParticipantPresence(
+    roomCode,
+    creatorId,
+    false,
+  );
+
+  assert.ok(before);
+  assert.ok(after);
+
+  assert.equal(
+    after.participantCount,
+    before.participantCount,
+  );
+
+  assert.equal(
+    after.participants.length,
+    before.participants.length,
+  );
+});
+
+
+test("presence snapshots exclude creator credentials", () => {
+  const {
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const snapshot = service.setParticipantPresence(
+    roomCode,
+    creatorId,
+    false,
+  );
+
+  assert.ok(snapshot);
+
+  assert.equal(
+    Object.hasOwn(snapshot, "creatorToken"),
+    false,
+  );
+
+  assert.equal(
+    Object.hasOwn(snapshot, "creatorTokenHash"),
+    false,
+  );
+});
+
+
+test("closed rooms reject presence updates", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  repository.updateStatus(roomCode, "closed");
+
+  const result = service.setParticipantPresence(
+    roomCode,
+    creatorId,
+    false,
+  );
+
+  assert.equal(result, null);
+});
+
