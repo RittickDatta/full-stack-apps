@@ -1,44 +1,27 @@
+import { MAX_PARTICIPANTS, assertRoomTransition } from "@chatroom/shared";
 
-import {
-  MAX_PARTICIPANTS,
-  assertRoomTransition,
-} from "@chatroom/shared";
-
-import type {
-  Participant,
-  RoomMessage,
-  RoomStatus,
-} from "@chatroom/shared";
+import type { Participant, RoomMessage, RoomStatus } from "@chatroom/shared";
 
 import type {
   CreateRoomRecordInput,
   RoomRepository,
 } from "./room.repository.js";
 
-import type {
-  RoomRecord,
-} from "./room-record.js";
+import type { RoomRecord } from "./room-record.js";
 
-export class InMemoryRoomRepository
-  implements RoomRepository
-{
+export class InMemoryRoomRepository implements RoomRepository {
   private readonly rooms = new Map<string, RoomRecord>();
 
   private cloneRoom(room: RoomRecord): RoomRecord {
     return {
       ...room,
       participants: new Map(
-        Array.from(
-          room.participants,
-          ([id, participant]) => [
-            id,
-            { ...participant },
-          ],
-        ),
+        Array.from(room.participants, ([id, participant]) => [
+          id,
+          { ...participant },
+        ]),
       ),
-      messages: room.messages.map(
-        (message) => ({ ...message }),
-      ),
+      messages: room.messages.map((message) => ({ ...message })),
     };
   }
 
@@ -46,9 +29,7 @@ export class InMemoryRoomRepository
     const code = input.code.toUpperCase();
 
     if (this.rooms.has(code)) {
-      throw new Error(
-        `Room with code ${code} already exists.`,
-      );
+      throw new Error(`Room with code ${code} already exists.`);
     }
 
     if (
@@ -92,10 +73,7 @@ export class InMemoryRoomRepository
   }
 
   findAll(): RoomRecord[] {
-    return Array.from(
-      this.rooms.values(),
-      (room) => this.cloneRoom(room),
-    );
+    return Array.from(this.rooms.values(), (room) => this.cloneRoom(room));
   }
 
   updateStatus(
@@ -122,16 +100,22 @@ export class InMemoryRoomRepository
     return this.cloneRoom(room);
   }
 
-  addParticipant(
-    code: string,
-    participant: Participant,
-  ): Participant | null {
+  addParticipant(code: string, participant: Participant): Participant | null {
     const room = this.rooms.get(code.toUpperCase());
 
     if (!room) return null;
 
-    if (room.status === "closed") {
-      throw new Error("Cannot join a closed room.");
+    const isCreatorInitialization =
+      room.status === "created" &&
+      participant.role === "creator" &&
+      participant.id === room.creatorId &&
+      room.participants.size === 0;
+
+    const isMemberJoining =
+      room.status === "active" && participant.role === "member";
+
+    if (!isCreatorInitialization && !isMemberJoining) {
+      throw new Error("Participants cannot join in this room state.");
     }
 
     if (room.participants.has(participant.id)) {
@@ -142,24 +126,17 @@ export class InMemoryRoomRepository
       throw new Error("Room is full.");
     }
 
-    room.participants.set(
-      participant.id,
-      { ...participant },
-    );
+    room.participants.set(participant.id, { ...participant });
 
     return { ...participant };
   }
 
-  findParticipant(
-    code: string,
-    participantId: string,
-  ): Participant | null {
+  findParticipant(code: string, participantId: string): Participant | null {
     const room = this.rooms.get(code.toUpperCase());
 
     if (!room) return null;
 
-    const participant =
-      room.participants.get(participantId);
+    const participant = room.participants.get(participantId);
 
     return participant ? { ...participant } : null;
   }
@@ -167,16 +144,13 @@ export class InMemoryRoomRepository
   updateParticipant(
     code: string,
     participantId: string,
-    updates: Partial<
-      Pick<Participant, "displayName" | "isConnected">
-    >,
+    updates: Partial<Pick<Participant, "displayName" | "isConnected">>,
   ): Participant | null {
     const room = this.rooms.get(code.toUpperCase());
 
     if (!room) return null;
 
-    const participant =
-      room.participants.get(participantId);
+    const participant = room.participants.get(participantId);
 
     if (!participant) return null;
 
@@ -190,10 +164,7 @@ export class InMemoryRoomRepository
     return { ...updated };
   }
 
-  removeParticipant(
-    code: string,
-    participantId: string,
-  ): boolean {
+  removeParticipant(code: string, participantId: string): boolean {
     const room = this.rooms.get(code.toUpperCase());
 
     if (!room) return false;
@@ -201,21 +172,13 @@ export class InMemoryRoomRepository
     return room.participants.delete(participantId);
   }
 
-  addMessage(
-    code: string,
-    message: RoomMessage,
-  ): RoomMessage | null {
+  addMessage(code: string, message: RoomMessage): RoomMessage | null {
     const room = this.rooms.get(code.toUpperCase());
 
     if (!room) return null;
 
-    if (
-      room.status !== "active" &&
-      room.status !== "locked"
-    ) {
-      throw new Error(
-        "Messages are not allowed in this room state.",
-      );
+    if (room.status !== "active" && room.status !== "locked") {
+      throw new Error("Messages are not allowed in this room state.");
     }
 
     if (message.roomCode !== room.code) {
@@ -232,9 +195,7 @@ export class InMemoryRoomRepository
 
     if (!room) return [];
 
-    return room.messages.map(
-      (message) => ({ ...message }),
-    );
+    return room.messages.map((message) => ({ ...message }));
   }
 
   delete(code: string): boolean {

@@ -94,6 +94,7 @@ test("adds and retrieves participants", () => {
   const repo = createRepository();
 
   createRoom(repo);
+  repo.updateStatus("A7K9PQ", "active");
 
   const participant = makeParticipant("p1");
 
@@ -111,6 +112,7 @@ test("enforces room capacity", () => {
   const repo = createRepository();
 
   createRoom(repo);
+  repo.updateStatus("A7K9PQ", "active");
 
   repo.addParticipant(
     "A7K9PQ",
@@ -141,6 +143,7 @@ test("updates participant presence", () => {
   const repo = createRepository();
 
   createRoom(repo);
+  repo.updateStatus("A7K9PQ", "active");
 
   repo.addParticipant(
     "A7K9PQ",
@@ -163,6 +166,7 @@ test("removes participants", () => {
   const repo = createRepository();
 
   createRoom(repo);
+  repo.updateStatus("A7K9PQ", "active");
 
   repo.addParticipant(
     "A7K9PQ",
@@ -278,4 +282,21 @@ test("clears all rooms", () => {
   repo.clear();
 
   assert.equal(repo.count(), 0);
+});
+
+
+
+test("rejects ordinary members before room start", () => {
+  const repo = createRepository();
+
+  createRoom(repo);
+
+  assert.throws(
+    () =>
+      repo.addParticipant(
+        "A7K9PQ",
+        makeParticipant("p1"),
+      ),
+    /Participants cannot join/,
+  );
 });

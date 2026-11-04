@@ -359,3 +359,242 @@ test("room start snapshot excludes private credentials", () => {
 
   assert.equal(Object.hasOwn(started.data.room, "creatorToken"), false);
 });
+
+
+test("joins an active room successfully", () => {
+  const { repository, service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const started = service.startRoom({
+    roomCode: created.data.room.code,
+    creatorToken: created.data.creatorToken,
+  });
+  assert.equal(started.success, true);
+
+  const joined = service.joinRoom({
+    roomCode: created.data.room.code,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+  if (!joined.success) return;
+
+  assert.equal(joined.data.room.status, "active");
+  assert.equal(joined.data.room.participantCount, 2);
+
+  const participant = repository.findParticipant(
+    created.data.room.code,
+    joined.data.participantId,
+  );
+
+  assert.equal(participant?.displayName, "Bob");
+  assert.equal(participant?.role, "member");
+});
+
+test("rejects joining a room that has not started", () => {
+  const { service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const joined = service.joinRoom({
+    roomCode: created.data.room.code,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, false);
+  if (joined.success) return;
+
+  assert.equal(joined.error.code, "ROOM_NOT_ACTIVE");
+});
+
+test("rejects joining a nonexistent room", () => {
+  const { service } = setup();
+
+  const result = service.joinRoom({
+    roomCode: "A7K9PQ",
+    displayName: "Bob",
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "ROOM_NOT_FOUND");
+});
+
+test("rejects invalid join payloads", () => {
+  const { service } = setup();
+
+  const result = service.joinRoom({
+    roomCode: "INVALID",
+    displayName: " ",
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "INVALID_PAYLOAD");
+});
+
+test("rejects joining a full room", () => {
+  const { repository, service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const code = created.data.room.code;
+
+  const started = service.startRoom({
+    roomCode: code,
+    creatorToken: created.data.creatorToken,
+  });
+  assert.equal(started.success, true);
+
+  const room = repository.findByCode(code);
+  assert.ok(room);
+
+  // The creator already occupies one place.
+  for (let i = 1; i < room.maxParticipants; i++) {
+    const result = service.joinRoom({
+      roomCode: code,
+      displayName: `Member ${i}`,
+    });
+
+    assert.equal(result.success, true);
+  }
+
+  const extra = service.joinRoom({
+    roomCode: code,
+    displayName: "Extra Member",
+  });
+
+  assert.equal(extra.success, false);
+  if (extra.success) return;
+
+  assert.equal(extra.error.code, "ROOM_FULL");
+
+  assert.equal(
+    repository.findByCode(code)?.participants.size,
+    room.maxParticipants,
+  );
+});
+
+test("normalizes lowercase room codes on join", () => {
+  const { service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  service.startRoom({
+    roomCode: created.data.room.code,
+    creatorToken: created.data.creatorToken,
+  });
+
+  const joined = service.joinRoom({
+    roomCode: created.data.room.code.toLowerCase(),
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+});
+
+test("rejects joining a locked room", () => {
+  const { repository, service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const code = created.data.room.code;
+
+  service.startRoom({
+    roomCode: code,
+    creatorToken: created.data.creatorToken,
+  });
+
+  repository.updateStatus(code, "locked");
+
+  const joined = service.joinRoom({
+    roomCode: code,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, false);
+  if (joined.success) return;
+
+  assert.equal(joined.error.code, "ROOM_LOCKED");
+});
+
+test("rejects joining a closed room", () => {
+  const { repository, service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const code = created.data.room.code;
+
+  repository.updateStatus(code, "closed");
+
+  const joined = service.joinRoom({
+    roomCode: code,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, false);
+  if (joined.success) return;
+
+  assert.equal(joined.error.code, "ROOM_CLOSED");
+});
+
+test("join response does not expose creator credentials", () => {
+  const { service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  service.startRoom({
+    roomCode: created.data.room.code,
+    creatorToken: created.data.creatorToken,
+  });
+
+  const joined = service.joinRoom({
+    roomCode: created.data.room.code,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+  if (!joined.success) return;
+
+  assert.equal(
+    Object.hasOwn(joined.data.room, "creatorToken"),
+    false,
+  );
+
+  assert.equal(
+    Object.hasOwn(joined.data.room, "creatorTokenHash"),
+    false,
+  );
+});
+

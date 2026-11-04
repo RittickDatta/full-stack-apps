@@ -5,6 +5,8 @@ import {
   canStartRoom,
   createRoomSchema,
   startRoomSchema,
+  joinRoomSchema,
+  canJoinRoom,
 } from "@chatroom/shared";
 
 import type {
@@ -12,6 +14,7 @@ import type {
   CreateRoomResult,
   Participant,
   StartRoomResult,
+  JoinRoomResult,
 } from "@chatroom/shared";
 
 import type { RoomRepository } from "../repositories/room.repository.js";
@@ -192,4 +195,153 @@ export class RoomService {
       },
     };
   }
+
+  joinRoom(input: unknown): AckResult<JoinRoomResult> {
+    const parsed = joinRoomSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_PAYLOAD",
+          message: "Invalid room code or display name.",
+        },
+      };
+    }
+
+    const { roomCode, displayName } = parsed.data;
+
+    const room = this.repository.findByCode(roomCode);
+
+    if (!room) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_FOUND",
+          message: "Room not found.",
+        },
+      };
+    }
+
+    if (room.status === "closed") {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_CLOSED",
+          message: "This room has been closed.",
+        },
+      };
+    }
+
+    if (room.status === "locked") {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_LOCKED",
+          message: "This room is locked.",
+        },
+      };
+    }
+
+    if (!canJoinRoom(room.status)) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_ACTIVE",
+          message: "This room has not started yet.",
+        },
+      };
+    }
+
+    if (room.participants.size >= room.maxParticipants) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_FULL",
+          message: "This room has reached its capacity.",
+        },
+      };
+    }
+
+    const participant: Participant = {
+      id: randomUUID(),
+      displayName,
+      role: "member",
+      joinedAt: new Date().toISOString(),
+      isConnected: true,
+    };
+
+    let addedParticipant: Participant | null;
+
+    try {
+      addedParticipant = this.repository.addParticipant(roomCode, participant);
+    } catch (error) {
+      if (error instanceof Error && error.message === "Room is full.") {
+        return {
+          success: false,
+          error: {
+            code: "ROOM_FULL",
+            message: "This room has reached its capacity.",
+          },
+        };
+      }
+
+      throw error;
+    }
+
+    if (!addedParticipant) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_FOUND",
+          message: "Room not found.",
+        },
+      };
+    }
+
+    const updatedRoom = this.repository.findByCode(roomCode);
+
+    if (!updatedRoom) {
+      this.repository.removeParticipant(roomCode, participant.id);
+
+      return {
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Unable to retrieve the updated room.",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        room: toRoomSnapshot(updatedRoom),
+        participantId: participant.id,
+      },
+    };
+  }
+
+  
+removeJoinedParticipant(
+  roomCode: string,
+  participantId: string,
+): boolean {
+  const room = this.repository.findByCode(roomCode);
+
+  if (!room) return false;
+
+  const participant =
+    room.participants.get(participantId);
+
+  if (!participant || participant.role !== "member") {
+    return false;
+  }
+
+  return this.repository.removeParticipant(
+    roomCode,
+    participantId,
+  );
+}
+
 }
