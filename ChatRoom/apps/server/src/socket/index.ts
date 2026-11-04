@@ -23,6 +23,10 @@ import {
   registerRoomHandlers,
 } from "./room.handlers.js";
 
+import {
+  registerChatHandlers,
+} from "./chat.handlers.js";
+
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server<
     ClientToServerEvents,
@@ -61,6 +65,7 @@ export function createSocketServer(httpServer: HttpServer) {
     });
 
     registerRoomHandlers(socket, roomService);
+    registerChatHandlers(socket, roomService);
 
     socket.on("disconnect", (reason) => {
       console.log(

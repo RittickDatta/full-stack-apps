@@ -22,6 +22,32 @@ function setup() {
   return { repository, service };
 }
 
+
+function setupActiveRoom() {
+  const { repository, service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+
+  assert.equal(created.success, true);
+
+  const started = service.startRoom({
+    roomCode: created.data.room.code,
+    creatorToken: created.data.creatorToken,
+  });
+
+  assert.equal(started.success, true);
+
+  return {
+    repository,
+    service,
+    roomCode: created.data.room.code,
+    creatorId: started.data.participantId,
+  };
+}
+
+
 test("generates valid room codes", () => {
   for (let i = 0; i < 100; i++) {
     const code = generateRoomCode();
@@ -598,3 +624,292 @@ test("join response does not expose creator credentials", () => {
   );
 });
 
+
+test("sends and stores a valid chat message", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "Hello everyone!",
+    },
+    creatorId,
+  );
+
+  assert.equal(result.success, true);
+
+  if (!result.success) return;
+
+  assert.equal(result.data.type, "chat");
+  assert.equal(result.data.content, "Hello everyone!");
+  assert.equal(result.data.senderId, creatorId);
+  assert.equal(result.data.senderName, "Alice");
+  assert.equal(result.data.roomCode, roomCode);
+
+  assert.ok(result.data.id);
+  assert.ok(result.data.createdAt);
+
+  const messages = repository.getMessages(roomCode);
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].id, result.data.id);
+});
+
+
+test("rejects whitespace-only messages", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "   ",
+    },
+    creatorId,
+  );
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(result.error.code, "INVALID_PAYLOAD");
+  assert.equal(repository.getMessages(roomCode).length, 0);
+});
+
+
+test("rejects messages exceeding the maximum length", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "A".repeat(2001),
+    },
+    creatorId,
+  );
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(result.error.code, "INVALID_PAYLOAD");
+  assert.equal(repository.getMessages(roomCode).length, 0);
+});
+
+
+test("rejects messages without a participant ID", () => {
+  const {
+    service,
+    roomCode,
+  } = setupActiveRoom();
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "Hello!",
+    },
+    undefined,
+  );
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(result.error.code, "NOT_AUTHORIZED");
+});
+
+
+test("rejects unknown participants", () => {
+  const {
+    service,
+    roomCode,
+  } = setupActiveRoom();
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "Hello!",
+    },
+    "unknown-participant",
+  );
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(
+    result.error.code,
+    "PARTICIPANT_NOT_FOUND",
+  );
+});
+
+
+test("allows existing participants to chat in locked rooms", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  repository.updateStatus(roomCode, "locked");
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "We can still chat.",
+    },
+    creatorId,
+  );
+
+  assert.equal(result.success, true);
+});
+
+
+test("rejects messages in closed rooms", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  repository.updateStatus(roomCode, "closed");
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "Can anyone hear me?",
+    },
+    creatorId,
+  );
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(result.error.code, "ROOM_CLOSED");
+});
+
+
+test("includes saved messages in later room snapshots", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  service.sendMessage(
+    {
+      roomCode,
+      content: "First message",
+    },
+    creatorId,
+  );
+
+  service.sendMessage(
+    {
+      roomCode,
+      content: "Second message",
+    },
+    creatorId,
+  );
+
+  const snapshot = repository.findByCode(roomCode);
+
+  assert.ok(snapshot);
+  assert.equal(snapshot.messages.length, 2);
+  assert.equal(
+    snapshot.messages[0].content,
+    "First message",
+  );
+  assert.equal(
+    snapshot.messages[1].content,
+    "Second message",
+  );
+});
+
+
+test("trims message content before saving", () => {
+  const {
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "   Hello Bob!   ",
+    },
+    creatorId,
+  );
+
+  assert.equal(result.success, true);
+
+  if (!result.success) return;
+
+  assert.equal(result.data.content, "Hello Bob!");
+});
+
+
+
+test("cannot send using another room's participant ID", () => {
+  const { service } = setup();
+
+  const first = service.createRoom({
+    displayName: "Alice",
+  });
+
+  const second = service.createRoom({
+    displayName: "Bob",
+  });
+
+  assert.equal(first.success, true);
+  assert.equal(second.success, true);
+
+  const startedFirst = service.startRoom({
+    roomCode: first.data.room.code,
+    creatorToken: first.data.creatorToken,
+  });
+
+  const startedSecond = service.startRoom({
+    roomCode: second.data.room.code,
+    creatorToken: second.data.creatorToken,
+  });
+
+  assert.equal(startedFirst.success, true);
+  assert.equal(startedSecond.success, true);
+
+  const result = service.sendMessage(
+    {
+      roomCode: second.data.room.code,
+      content: "I should not be here.",
+    },
+    startedFirst.data.participantId,
+  );
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(
+    result.error.code,
+    "PARTICIPANT_NOT_FOUND",
+  );
+});
