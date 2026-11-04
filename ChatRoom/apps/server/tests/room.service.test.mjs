@@ -44,6 +44,7 @@ function setupActiveRoom() {
     service,
     roomCode: created.data.room.code,
     creatorId: started.data.participantId,
+    creatorToken: created.data.creatorToken,
   };
 }
 
@@ -1112,3 +1113,239 @@ test("closed rooms reject presence updates", () => {
   assert.equal(result, null);
 });
 
+
+test("creator can lock an active room", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const result = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+
+  assert.equal(result.data.status, "locked");
+  assert.equal(
+    repository.findByCode(roomCode)?.status,
+    "locked",
+  );
+});
+
+
+test("rejects locking with invalid creator credentials", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+  } = setupActiveRoom();
+
+  const result = service.lockRoom({
+    roomCode,
+    creatorToken: "invalid-creator-token",
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "NOT_AUTHORIZED");
+  assert.equal(
+    repository.findByCode(roomCode)?.status,
+    "active",
+  );
+});
+
+
+test("rejects locking an already locked room", () => {
+  const {
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const first = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(first.success, true);
+
+  const second = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(second.success, false);
+  if (second.success) return;
+
+  assert.equal(second.error.code, "ROOM_NOT_ACTIVE");
+});
+
+
+test("rejects locking a room before it starts", () => {
+  const { service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const result = service.lockRoom({
+    roomCode: created.data.room.code,
+    creatorToken: created.data.creatorToken,
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "ROOM_NOT_ACTIVE");
+});
+
+
+test("rejects locking a closed room", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  repository.updateStatus(roomCode, "closed");
+
+  const result = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "ROOM_CLOSED");
+});
+
+
+test("rejects locking a nonexistent room", () => {
+  const { service } = setup();
+
+  const result = service.lockRoom({
+    roomCode: "A7K9PQ",
+    creatorToken: "a-valid-length-token",
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "ROOM_NOT_FOUND");
+});
+
+
+test("rejects invalid room lock payloads", () => {
+  const { service } = setup();
+
+  const result = service.lockRoom({
+    roomCode: "invalid-code",
+    creatorToken: "",
+  });
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "INVALID_PAYLOAD");
+});
+
+
+test("locked rooms reject new participants", () => {
+  const {
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const locked = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(locked.success, true);
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, false);
+  if (joined.success) return;
+
+  assert.equal(joined.error.code, "ROOM_LOCKED");
+});
+
+
+test("existing members can chat after room locking", () => {
+  const {
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+  if (!joined.success) return;
+
+  const locked = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(locked.success, true);
+
+  const sent = service.sendMessage(
+    {
+      roomCode,
+      content: "Still chatting!",
+    },
+    joined.data.participantId,
+  );
+
+  assert.equal(sent.success, true);
+  if (!sent.success) return;
+
+  assert.equal(sent.data.senderName, "Bob");
+});
+
+
+test("room lock response excludes creator credentials", () => {
+  const {
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const result = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+
+  assert.equal(
+    Object.hasOwn(result.data, "creatorToken"),
+    false,
+  );
+
+  assert.equal(
+    Object.hasOwn(result.data, "creatorTokenHash"),
+    false,
+  );
+});

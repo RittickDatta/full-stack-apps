@@ -146,4 +146,54 @@ export function registerRoomHandlers(
       });
     });
   });
+
+  // LOCK ROOM
+  socket.on("room:lock", (payload, acknowledge) => {
+    void executeSocketHandler("room:lock", acknowledge, (ack) => {
+      const sessionRoomCode = socket.data.roomCode;
+      const participantId = socket.data.participantId;
+
+      if (
+        !sessionRoomCode ||
+        !participantId ||
+        socket.data.isCreator !== true ||
+        !socket.rooms.has(sessionRoomCode)
+      ) {
+        ack(
+          ackError(
+            "NOT_AUTHORIZED",
+            "Only the connected room creator can lock this room.",
+          ),
+        );
+        return;
+      }
+
+      const requestedRoomCode =
+        typeof payload?.roomCode === "string"
+          ? payload.roomCode.trim().toUpperCase()
+          : null;
+
+      if (requestedRoomCode !== sessionRoomCode) {
+        ack(ackError("NOT_AUTHORIZED", "You cannot lock another room."));
+        return;
+      }
+
+      const result = roomService.lockRoom(payload);
+
+      if (!result.success) {
+        ack(result);
+        return;
+      }
+
+      // The service returns a summary.
+      // The broadcast needs a complete room snapshot.
+      const snapshot = roomService.getRoomSnapshot(sessionRoomCode);
+
+      if (snapshot) {
+        socket.nsp.to(sessionRoomCode).emit("room:updated", { room: snapshot });
+      }
+
+      ack(result);
+    });
+  });
 }

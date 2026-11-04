@@ -9,6 +9,8 @@ import {
   canJoinRoom,
   canSendMessage,
   sendMessageSchema,
+  canLockRoom,
+  lockRoomSchema,
 } from "@chatroom/shared";
 
 import type {
@@ -19,6 +21,7 @@ import type {
   RoomMessage,
   RoomSnapshot,
   StartRoomResult,
+  RoomSummary,
 } from "@chatroom/shared";
 
 import type { RoomRepository } from "../repositories/room.repository.js";
@@ -496,5 +499,80 @@ export class RoomService {
     const room = this.repository.findByCode(roomCode);
 
     return room ? toRoomSnapshot(room) : null;
+  }
+
+  lockRoom(input: unknown): AckResult<RoomSummary> {
+    const parsed = lockRoomSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_PAYLOAD",
+          message: "Invalid room code or creator token.",
+        },
+      };
+    }
+
+    const { roomCode, creatorToken } = parsed.data;
+
+    const room = this.repository.findByCode(roomCode);
+
+    if (!room) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_FOUND",
+          message: "Room not found.",
+        },
+      };
+    }
+
+    if (room.status === "closed") {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_CLOSED",
+          message: "This room has been closed.",
+        },
+      };
+    }
+
+    if (!verifyCreatorToken(creatorToken, room.creatorTokenHash)) {
+      return {
+        success: false,
+        error: {
+          code: "NOT_AUTHORIZED",
+          message: "Invalid creator credentials.",
+        },
+      };
+    }
+
+    if (!canLockRoom(room.status)) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_ACTIVE",
+          message: "Only active rooms can be locked.",
+        },
+      };
+    }
+
+    const updatedRoom = this.repository.updateStatus(roomCode, "locked");
+
+    if (!updatedRoom) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_FOUND",
+          message: "Room not found.",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: toRoomSummary(updatedRoom),
+    };
   }
 }
