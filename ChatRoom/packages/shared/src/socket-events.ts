@@ -78,7 +78,10 @@ export interface ServerToClientEvents {
 
   "participant:joined": (event: ParticipantEvent) => void;
 
-  "participant:left": (event: ParticipantLeftEvent) => void;
+  "participant:left": (payload: {
+    roomCode: string;
+    participantId: string;
+  }) => void;
 
   "room:updated": (payload: { room: RoomSnapshot }) => void;
 

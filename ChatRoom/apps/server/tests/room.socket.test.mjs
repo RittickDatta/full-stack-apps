@@ -1429,3 +1429,421 @@ test("new participants cannot join a locked room", async () => {
     await new Promise((resolve) => io.close(resolve));
   }
 });
+
+
+test("member leave notifies creator and removes membership", async () => {
+  const httpServer = createServer();
+  const io = new Server(httpServer);
+
+  const repository = new InMemoryRoomRepository();
+  const service = new RoomService(repository);
+
+  io.on("connection", (socket) => {
+    registerRoomHandlers(socket, service);
+    registerChatHandlers(socket, service);
+  });
+
+  await new Promise((resolve) => {
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = httpServer.address();
+  assert.ok(address);
+  assert.notEqual(typeof address, "string");
+
+  const url = `http://127.0.0.1:${address.port}`;
+
+  const creator = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  const member = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  try {
+    await Promise.all(
+      [creator, member].map(
+        (client) => new Promise((resolve, reject) => {
+          if (client.connected) return resolve();
+          client.once("connect", resolve);
+          client.once("connect_error", reject);
+        }),
+      ),
+    );
+
+    const created = await creator
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: "Alice",
+      });
+
+    assert.equal(created.success, true);
+    if (!created.success) return;
+
+    const roomCode = created.data.room.code;
+
+    const started = await creator
+      .timeout(5000)
+      .emitWithAck("room:start", {
+        roomCode,
+        creatorToken: created.data.creatorToken,
+      });
+
+    assert.equal(started.success, true);
+
+    const joined = await member
+      .timeout(5000)
+      .emitWithAck("room:join", {
+        roomCode,
+        displayName: "Bob",
+      });
+
+    assert.equal(joined.success, true);
+    if (!joined.success) return;
+
+    const participantId = joined.data.participantId;
+
+    const leftEvent = new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Leave event timed out")),
+        5000,
+      );
+
+      creator.once("participant:left", (event) => {
+        clearTimeout(timeout);
+        resolve(event);
+      });
+    });
+
+    const updatedEvent = new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Room update timed out")),
+        5000,
+      );
+
+      const listener = (event) => {
+        if (event.room.participantCount !== 1) return;
+
+        clearTimeout(timeout);
+        creator.off("room:updated", listener);
+        resolve(event);
+      };
+
+      creator.on("room:updated", listener);
+    });
+
+    const left = await member
+      .timeout(5000)
+      .emitWithAck("room:leave", { roomCode });
+
+    assert.equal(left.success, true);
+
+    const [event, update] = await Promise.all([
+      leftEvent,
+      updatedEvent,
+    ]);
+
+    assert.equal(event.roomCode, roomCode);
+    assert.equal(event.participantId, participantId);
+    assert.equal(update.room.participantCount, 1);
+
+    assert.equal(
+      repository.findParticipant(roomCode, participantId),
+      null,
+    );
+
+    const sent = await member
+      .timeout(5000)
+      .emitWithAck("chat:send", {
+        roomCode,
+        content: "Can I still send?",
+      });
+
+    assert.equal(sent.success, false);
+    if (!sent.success) {
+      assert.equal(sent.error.code, "NOT_AUTHORIZED");
+    }
+
+    const memberServerSocket =
+      io.sockets.sockets.get(member.id);
+
+    assert.ok(memberServerSocket);
+    assert.equal(
+      memberServerSocket.rooms.has(roomCode),
+      false,
+    );
+    assert.equal(
+      memberServerSocket.data.participantId,
+      undefined,
+    );
+  } finally {
+    creator.disconnect();
+    member.disconnect();
+
+    await new Promise((resolve) => io.close(resolve));
+  }
+});
+
+
+test("creator can leave while members continue chatting", async () => {
+  const httpServer = createServer();
+  const io = new Server(httpServer);
+
+  const repository = new InMemoryRoomRepository();
+  const service = new RoomService(repository);
+
+  io.on("connection", (socket) => {
+    registerRoomHandlers(socket, service);
+    registerChatHandlers(socket, service);
+  });
+
+  await new Promise((resolve) => {
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = httpServer.address();
+  assert.ok(address);
+  assert.notEqual(typeof address, "string");
+
+  const url = `http://127.0.0.1:${address.port}`;
+
+  const creator = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  const member = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  try {
+    await Promise.all(
+      [creator, member].map(
+        (client) => new Promise((resolve, reject) => {
+          if (client.connected) return resolve();
+          client.once("connect", resolve);
+          client.once("connect_error", reject);
+        }),
+      ),
+    );
+
+    const created = await creator
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: "Alice",
+      });
+
+    assert.equal(created.success, true);
+    if (!created.success) return;
+
+    const roomCode = created.data.room.code;
+
+    const started = await creator
+      .timeout(5000)
+      .emitWithAck("room:start", {
+        roomCode,
+        creatorToken: created.data.creatorToken,
+      });
+
+    assert.equal(started.success, true);
+
+    const joined = await member
+      .timeout(5000)
+      .emitWithAck("room:join", {
+        roomCode,
+        displayName: "Bob",
+      });
+
+    assert.equal(joined.success, true);
+    if (!joined.success) return;
+
+    const left = await creator
+      .timeout(5000)
+      .emitWithAck("room:leave", { roomCode });
+
+    assert.equal(left.success, true);
+
+    const room = repository.findByCode(roomCode);
+
+    assert.ok(room);
+    assert.equal(room.status, "active");
+    assert.equal(room.participants.size, 1);
+
+    const message = await member
+      .timeout(5000)
+      .emitWithAck("chat:send", {
+        roomCode,
+        content: "The conversation continues!",
+      });
+
+    assert.equal(message.success, true);
+    if (!message.success) return;
+
+    assert.equal(message.data.senderName, "Bob");
+
+    const unauthorized = await creator
+      .timeout(5000)
+      .emitWithAck("room:lock", {
+        roomCode,
+        creatorToken: created.data.creatorToken,
+      });
+
+    assert.equal(unauthorized.success, false);
+    if (!unauthorized.success) {
+      assert.equal(
+        unauthorized.error.code,
+        "NOT_AUTHORIZED",
+      );
+    }
+  } finally {
+    creator.disconnect();
+    member.disconnect();
+
+    await new Promise((resolve) => io.close(resolve));
+  }
+});
+
+
+test("a socket can join another room after leaving", async () => {
+  const httpServer = createServer();
+  const io = new Server(httpServer);
+
+  const repository = new InMemoryRoomRepository();
+  const service = new RoomService(repository);
+
+  io.on("connection", (socket) => {
+    registerRoomHandlers(socket, service);
+  });
+
+  await new Promise((resolve) => {
+    httpServer.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = httpServer.address();
+  assert.ok(address);
+  assert.notEqual(typeof address, "string");
+
+  const url = `http://127.0.0.1:${address.port}`;
+
+  const alice = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  const bob = createClient(url, {
+    transports: ["websocket"],
+    reconnection: false,
+  });
+
+  try {
+    await Promise.all(
+      [alice, bob].map(
+        (client) => new Promise((resolve, reject) => {
+          if (client.connected) return resolve();
+          client.once("connect", resolve);
+          client.once("connect_error", reject);
+        }),
+      ),
+    );
+
+    const first = await alice
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: "Alice",
+      });
+
+    assert.equal(first.success, true);
+    if (!first.success) return;
+
+    const startedFirst = await alice
+      .timeout(5000)
+      .emitWithAck("room:start", {
+        roomCode: first.data.room.code,
+        creatorToken: first.data.creatorToken,
+      });
+
+    assert.equal(startedFirst.success, true);
+
+    const joinedFirst = await bob
+      .timeout(5000)
+      .emitWithAck("room:join", {
+        roomCode: first.data.room.code,
+        displayName: "Bob",
+      });
+
+    assert.equal(joinedFirst.success, true);
+
+    const left = await bob
+      .timeout(5000)
+      .emitWithAck("room:leave", {
+        roomCode: first.data.room.code,
+      });
+
+    assert.equal(left.success, true);
+
+    // Alice can create another room even while
+    // remaining connected to the first one.
+    const second = await alice
+      .timeout(5000)
+      .emitWithAck("room:create", {
+        displayName: "Alice",
+      });
+
+    assert.equal(second.success, true);
+    if (!second.success) return;
+
+    // Start the second room from a separate creator socket.
+    const charlie = createClient(url, {
+      transports: ["websocket"],
+      reconnection: false,
+    });
+
+    try {
+      await new Promise((resolve, reject) => {
+        charlie.once("connect", resolve);
+        charlie.once("connect_error", reject);
+      });
+
+      const startedSecond = await charlie
+        .timeout(5000)
+        .emitWithAck("room:start", {
+          roomCode: second.data.room.code,
+          creatorToken: second.data.creatorToken,
+        });
+
+      assert.equal(startedSecond.success, true);
+
+      const joinedSecond = await bob
+        .timeout(5000)
+        .emitWithAck("room:join", {
+          roomCode: second.data.room.code,
+          displayName: "Bob",
+        });
+
+      assert.equal(joinedSecond.success, true);
+
+      assert.equal(
+        repository.findByCode(first.data.room.code)
+          ?.participants.size,
+        1,
+      );
+
+      assert.equal(
+        repository.findByCode(second.data.room.code)
+          ?.participants.size,
+        2,
+      );
+    } finally {
+      charlie.disconnect();
+    }
+  } finally {
+    alice.disconnect();
+    bob.disconnect();
+
+    await new Promise((resolve) => io.close(resolve));
+  }
+});

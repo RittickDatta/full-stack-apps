@@ -3,7 +3,7 @@ import type { RoomService } from "../services/room.service.js";
 import { ackError } from "./acknowledgements.js";
 import { executeSocketHandler } from "./handler-wrapper.js";
 
-import { assignSocketSession, isSocketInRoom } from "./socket-session.js";
+import { assignSocketSession, isSocketInRoom, clearSocketSession } from "./socket-session.js";
 
 import type { RoomSocket } from "./types.js";
 
@@ -196,4 +196,104 @@ export function registerRoomHandlers(
       ack(result);
     });
   });
+
+  
+  // LEAVE ROOM
+  socket.on("room:leave", (payload, acknowledge) => {
+    void executeSocketHandler(
+      "room:leave",
+      acknowledge,
+      async (ack) => {
+        const sessionRoomCode = socket.data.roomCode;
+        const participantId = socket.data.participantId;
+
+        if (
+          !sessionRoomCode ||
+          !participantId ||
+          !socket.rooms.has(sessionRoomCode)
+        ) {
+          ack(
+            ackError(
+              "NOT_AUTHORIZED",
+              "You must be in a room to leave it.",
+            ),
+          );
+          return;
+        }
+
+        const requestedRoomCode =
+          typeof payload?.roomCode === "string"
+            ? payload.roomCode.trim().toUpperCase()
+            : null;
+
+        if (requestedRoomCode !== sessionRoomCode) {
+          ack(
+            ackError(
+              "NOT_AUTHORIZED",
+              "You cannot leave another room.",
+            ),
+          );
+          return;
+        }
+
+        // Capture the current membership before removing it.
+        const currentRoom =
+          roomService.getRoomSnapshot(sessionRoomCode);
+
+        const participant = currentRoom?.participants.find(
+          (item) => item.id === participantId,
+        );
+
+        if (!participant) {
+          ack(
+            ackError(
+              "PARTICIPANT_NOT_FOUND",
+              "Participant not found in this room.",
+            ),
+          );
+          return;
+        }
+
+        const result = roomService.leaveRoom(
+          payload,
+          participantId,
+        );
+
+        if (!result.success) {
+          ack(result);
+          return;
+        }
+
+        // Immediately revoke this connection's room identity.
+        clearSocketSession(socket);
+
+        // Remove the Socket.IO room membership.
+        await socket.leave(sessionRoomCode);
+
+        const updatedRoom =
+          roomService.getRoomSnapshot(sessionRoomCode);
+
+        // A successful leave is acknowledged even if the room
+        // no longer has any connected participants.
+        ack(result);
+
+        socket.nsp.to(sessionRoomCode).emit(
+          "participant:left",
+          {
+            roomCode: sessionRoomCode,
+            participantId,
+            // displayName: participant.displayName,
+          },
+        );
+
+        if (updatedRoom) {
+          socket.nsp.to(sessionRoomCode).emit(
+            "room:updated",
+            { room: updatedRoom },
+          );
+        }
+      },
+    );
+  });
+
 }

@@ -11,6 +11,7 @@ import {
   sendMessageSchema,
   canLockRoom,
   lockRoomSchema,
+  leaveRoomSchema,
 } from "@chatroom/shared";
 
 import type {
@@ -573,6 +574,91 @@ export class RoomService {
     return {
       success: true,
       data: toRoomSummary(updatedRoom),
+    };
+  }
+
+  leaveRoom(
+    input: unknown,
+    participantId: string | undefined,
+  ): AckResult<{ roomCode: string }> {
+    const parsed = leaveRoomSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_PAYLOAD",
+          message: "Invalid room code.",
+        },
+      };
+    }
+
+    const { roomCode } = parsed.data;
+
+    if (!participantId) {
+      return {
+        success: false,
+        error: {
+          code: "NOT_AUTHORIZED",
+          message: "You must be in a room to leave it.",
+        },
+      };
+    }
+
+    const room = this.repository.findByCode(roomCode);
+
+    if (!room) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_FOUND",
+          message: "Room not found.",
+        },
+      };
+    }
+
+    if (room.status === "closed") {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_CLOSED",
+          message: "This room has already been closed.",
+        },
+      };
+    }
+
+    const participant = this.repository.findParticipant(
+      roomCode,
+      participantId,
+    );
+
+    if (!participant) {
+      return {
+        success: false,
+        error: {
+          code: "PARTICIPANT_NOT_FOUND",
+          message: "Participant not found in this room.",
+        },
+      };
+    }
+
+    const removed = this.repository.removeParticipant(roomCode, participantId);
+
+    if (!removed) {
+      return {
+        success: false,
+        error: {
+          code: "PARTICIPANT_NOT_FOUND",
+          message: "Unable to remove participant.",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        roomCode: room.code,
+      },
     };
   }
 }

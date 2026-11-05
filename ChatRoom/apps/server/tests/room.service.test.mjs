@@ -1349,3 +1349,333 @@ test("room lock response excludes creator credentials", () => {
     false,
   );
 });
+
+
+test("member can leave an active room", () => {
+  const { repository, service, roomCode } =
+    setupActiveRoom();
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+  if (!joined.success) return;
+
+  const result = service.leaveRoom(
+    { roomCode },
+    joined.data.participantId,
+  );
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+
+  assert.equal(result.data.roomCode, roomCode);
+
+  assert.equal(
+    repository.findParticipant(
+      roomCode,
+      joined.data.participantId,
+    ),
+    null,
+  );
+
+  assert.equal(
+    repository.findByCode(roomCode)?.participants.size,
+    1,
+  );
+});
+
+
+test("creator can leave without closing the room", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+
+  const result = service.leaveRoom(
+    { roomCode },
+    creatorId,
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(
+    repository.findByCode(roomCode)?.status,
+    "active",
+  );
+
+  assert.equal(
+    repository.findParticipant(roomCode, creatorId),
+    null,
+  );
+
+  assert.equal(
+    repository.findByCode(roomCode)?.participants.size,
+    1,
+  );
+});
+
+
+test("members can chat after creator leaves", () => {
+  const {
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+  if (!joined.success) return;
+
+  const left = service.leaveRoom(
+    { roomCode },
+    creatorId,
+  );
+
+  assert.equal(left.success, true);
+
+  const message = service.sendMessage(
+    {
+      roomCode,
+      content: "The room is still active.",
+    },
+    joined.data.participantId,
+  );
+
+  assert.equal(message.success, true);
+  if (!message.success) return;
+
+  assert.equal(message.data.senderName, "Bob");
+});
+
+
+test("members can leave locked rooms", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+  if (!joined.success) return;
+
+  const locked = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(locked.success, true);
+
+  const result = service.leaveRoom(
+    { roomCode },
+    joined.data.participantId,
+  );
+
+  assert.equal(result.success, true);
+  assert.equal(
+    repository.findByCode(roomCode)?.status,
+    "locked",
+  );
+});
+
+
+test("leaving frees a room capacity slot", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+  } = setupActiveRoom();
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, true);
+  if (!joined.success) return;
+
+  const before =
+    repository.findByCode(roomCode)?.participants.size;
+
+  service.leaveRoom(
+    { roomCode },
+    joined.data.participantId,
+  );
+
+  const after =
+    repository.findByCode(roomCode)?.participants.size;
+
+  assert.equal(after, before - 1);
+
+  const replacement = service.joinRoom({
+    roomCode,
+    displayName: "Charlie",
+  });
+
+  assert.equal(replacement.success, true);
+});
+
+
+test("cannot leave the same room twice", () => {
+  const {
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const first = service.leaveRoom(
+    { roomCode },
+    creatorId,
+  );
+
+  assert.equal(first.success, true);
+
+  const second = service.leaveRoom(
+    { roomCode },
+    creatorId,
+  );
+
+  assert.equal(second.success, false);
+  if (second.success) return;
+
+  assert.equal(
+    second.error.code,
+    "PARTICIPANT_NOT_FOUND",
+  );
+});
+
+
+test("cannot leave without participant identity", () => {
+  const { service, roomCode } = setupActiveRoom();
+
+  const result = service.leaveRoom(
+    { roomCode },
+    undefined,
+  );
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "NOT_AUTHORIZED");
+});
+
+
+test("rejects invalid leave payloads", () => {
+  const {
+    service,
+    creatorId,
+  } = setupActiveRoom();
+
+  const result = service.leaveRoom(
+    { roomCode: "INVALID!" },
+    creatorId,
+  );
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "INVALID_PAYLOAD");
+});
+
+
+test("closed rooms reject leave requests", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  repository.updateStatus(roomCode, "closed");
+
+  const result = service.leaveRoom(
+    { roomCode },
+    creatorId,
+  );
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(result.error.code, "ROOM_CLOSED");
+});
+
+
+test("removed participants cannot send messages", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const left = service.leaveRoom(
+    { roomCode },
+    creatorId,
+  );
+
+  assert.equal(left.success, true);
+
+  const result = service.sendMessage(
+    {
+      roomCode,
+      content: "I already left.",
+    },
+    creatorId,
+  );
+
+  assert.equal(result.success, false);
+  if (result.success) return;
+
+  assert.equal(
+    result.error.code,
+    "PARTICIPANT_NOT_FOUND",
+  );
+
+  assert.equal(
+    repository.getMessages(roomCode).length,
+    0,
+  );
+});
+
+
+test("last participant leaving keeps room active", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+  } = setupActiveRoom();
+
+  const result = service.leaveRoom(
+    { roomCode },
+    creatorId,
+  );
+
+  assert.equal(result.success, true);
+
+  const room = repository.findByCode(roomCode);
+
+  assert.ok(room);
+  assert.equal(room.status, "active");
+  assert.equal(room.participants.size, 0);
+});
