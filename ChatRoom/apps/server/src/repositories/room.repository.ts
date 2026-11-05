@@ -32,6 +32,11 @@ export interface RoomRepository {
     changedAt?: string,
   ): RoomRecord | null;
 
+  updateEmptySince(
+    code: string,
+    emptySince: string | null,
+  ): RoomRecord | null;
+
   addParticipant(
     code: string,
     participant: Participant,

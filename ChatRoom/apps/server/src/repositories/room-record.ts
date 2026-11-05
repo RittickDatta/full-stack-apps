@@ -19,6 +19,7 @@ export interface RoomRecord {
   createdAt: string;
   startedAt: string | null;
   closedAt: string | null;
+  emptySince: string | null;
 
   participants: Map<string, Participant>;
   messages: RoomMessage[];

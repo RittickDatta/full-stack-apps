@@ -52,6 +52,7 @@ export class InMemoryRoomRepository implements RoomRepository {
       createdAt: input.createdAt,
       startedAt: null,
       closedAt: null,
+      emptySince: null,
 
       participants: new Map(),
       messages: [],
@@ -96,6 +97,19 @@ export class InMemoryRoomRepository implements RoomRepository {
     if (status === "closed") {
       room.closedAt = changedAt;
     }
+
+    return this.cloneRoom(room);
+  }
+
+  updateEmptySince(
+    code: string,
+    emptySince: string | null,
+  ): RoomRecord | null {
+    const room = this.rooms.get(code.toUpperCase());
+
+    if (!room) return null;
+
+    room.emptySince = emptySince;
 
     return this.cloneRoom(room);
   }

@@ -1,4 +1,3 @@
-
 import type { Server as HttpServer } from "node:http";
 import { Server } from "socket.io";
 
@@ -11,25 +10,20 @@ import type {
 
 import { env } from "../config/env.js";
 
-import {
-  roomRepository,
-} from "../repositories/room-repository.instance.js";
+import { roomRepository } from "../repositories/room-repository.instance.js";
 
-import {
-  RoomService,
-} from "../services/room.service.js";
+import { RoomService } from "../services/room.service.js";
 
-import {
-  registerRoomHandlers,
-} from "./room.handlers.js";
+import { registerRoomHandlers } from "./room.handlers.js";
 
-import {
-  registerChatHandlers,
-} from "./chat.handlers.js";
+import { registerChatHandlers } from "./chat.handlers.js";
 
-import {
-  registerPresenceHandlers,
-} from "./presence.handlers.js";
+import { registerPresenceHandlers } from "./presence.handlers.js";
+
+import { RoomCleanupService } from "../services/room-cleanup.service.js";
+
+import { startRoomCleanupScheduler } from "../services/room-cleanup.scheduler.js";
+import { clearSocketSession } from "./socket-session.js";
 
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server<
@@ -46,6 +40,26 @@ export function createSocketServer(httpServer: HttpServer) {
   });
 
   const roomService = new RoomService(roomRepository);
+
+  const cleanupService = new RoomCleanupService(roomRepository);
+
+  const stopCleanupScheduler = startRoomCleanupScheduler(
+    cleanupService,
+    undefined,
+    (expiredRoom) => {
+      const { roomCode } = expiredRoom;
+
+      for (const connectedSocket of io.sockets.sockets.values()) {
+        if (connectedSocket.data.roomCode === roomCode) {
+          clearSocketSession(connectedSocket);
+        }
+
+        if (connectedSocket.rooms.has(roomCode)) {
+          connectedSocket.leave(roomCode);
+        }
+      }
+    },
+  );
 
   io.on("connection", (socket) => {
     console.log(`Socket connected: ${socket.id}`);
@@ -73,11 +87,9 @@ export function createSocketServer(httpServer: HttpServer) {
     registerPresenceHandlers(socket, roomService);
 
     socket.on("disconnect", (reason) => {
-      console.log(
-        `Socket disconnected: ${socket.id} (${reason})`,
-      );
+      console.log(`Socket disconnected: ${socket.id} (${reason})`);
     });
   });
 
-  return io;
+  return { io, stopCleanupScheduler };
 }

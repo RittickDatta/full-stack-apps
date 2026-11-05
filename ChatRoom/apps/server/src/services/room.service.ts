@@ -196,6 +196,8 @@ export class RoomService {
       };
     }
 
+    this.updateEmptySince(roomCode);
+
     return {
       success: true,
       data: {
@@ -307,6 +309,8 @@ export class RoomService {
         },
       };
     }
+
+    this.updateEmptySince(roomCode);
 
     const updatedRoom = this.repository.findByCode(roomCode);
 
@@ -492,6 +496,8 @@ export class RoomService {
       return null;
     }
 
+    this.updateEmptySince(roomCode);
+
     const updatedRoom = this.repository.findByCode(roomCode);
 
     return updatedRoom ? toRoomSnapshot(updatedRoom) : null;
@@ -571,6 +577,8 @@ export class RoomService {
         },
       };
     }
+
+    this.updateEmptySince(roomCode);
 
     return {
       success: true,
@@ -655,6 +663,8 @@ export class RoomService {
       };
     }
 
+    this.updateEmptySince(roomCode);
+
     return {
       success: true,
       data: {
@@ -732,5 +742,28 @@ export class RoomService {
         roomCode: updatedRoom.code,
       },
     };
+  }
+
+  private updateEmptySince(roomCode: string): void {
+    const room = this.repository.findByCode(roomCode);
+
+    if (!room) return;
+
+    if (room.status !== "active" && room.status !== "locked") {
+      return;
+    }
+
+    const hasConnectedParticipants = [...room.participants.values()].some(
+      (participant) => participant.isConnected,
+    );
+
+    if (hasConnectedParticipants) {
+      this.repository.updateEmptySince(roomCode, null);
+    } else if (!room.emptySince) {
+      this.repository.updateEmptySince(
+        roomCode,
+        new Date().toISOString(),
+      );
+    }
   }
 }
