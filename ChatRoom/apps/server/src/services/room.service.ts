@@ -12,6 +12,7 @@ import {
   canLockRoom,
   lockRoomSchema,
   leaveRoomSchema,
+  closeRoomSchema,
 } from "@chatroom/shared";
 
 import type {
@@ -658,6 +659,77 @@ export class RoomService {
       success: true,
       data: {
         roomCode: room.code,
+      },
+    };
+  }
+
+  closeRoom(input: unknown): AckResult<{ roomCode: string }> {
+    const parsed = closeRoomSchema.safeParse(input);
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: {
+          code: "INVALID_PAYLOAD",
+          message: "Invalid room code or creator token.",
+        },
+      };
+    }
+
+    const { roomCode, creatorToken } = parsed.data;
+
+    const room = this.repository.findByCode(roomCode);
+
+    if (!room) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_FOUND",
+          message: "Room not found.",
+        },
+      };
+    }
+
+    if (room.status === "closed") {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_CLOSED",
+          message: "This room is already closed.",
+        },
+      };
+    }
+
+    if (!verifyCreatorToken(creatorToken, room.creatorTokenHash)) {
+      return {
+        success: false,
+        error: {
+          code: "NOT_AUTHORIZED",
+          message: "Invalid creator credentials.",
+        },
+      };
+    }
+
+    const updatedRoom = this.repository.updateStatus(
+      roomCode,
+      "closed",
+      new Date().toISOString(),
+    );
+
+    if (!updatedRoom) {
+      return {
+        success: false,
+        error: {
+          code: "ROOM_NOT_FOUND",
+          message: "Room not found.",
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        roomCode: updatedRoom.code,
       },
     };
   }

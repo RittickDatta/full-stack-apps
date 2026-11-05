@@ -1679,3 +1679,262 @@ test("last participant leaving keeps room active", () => {
   assert.equal(room.status, "active");
   assert.equal(room.participants.size, 0);
 });
+
+
+test("creator can close an active room", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const result = service.closeRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(result.success, true);
+
+  if (!result.success) return;
+
+  assert.equal(result.data.roomCode, roomCode);
+
+  const room = repository.findByCode(roomCode);
+
+  assert.ok(room);
+  assert.equal(room.status, "closed");
+  assert.ok(room.closedAt);
+});
+
+
+test("creator can close a locked room", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const locked = service.lockRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(locked.success, true);
+
+  const closed = service.closeRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(closed.success, true);
+  assert.equal(
+    repository.findByCode(roomCode)?.status,
+    "closed",
+  );
+});
+
+
+test("creator can close a created room", () => {
+  const { repository, service } = setup();
+
+  const created = service.createRoom({
+    displayName: "Alice",
+  });
+
+  assert.equal(created.success, true);
+  if (!created.success) return;
+
+  const result = service.closeRoom({
+    roomCode: created.data.room.code,
+    creatorToken: created.data.creatorToken,
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(
+    repository.findByCode(created.data.room.code)?.status,
+    "closed",
+  );
+});
+
+
+test("rejects room closure with invalid creator token", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+  } = setupActiveRoom();
+
+  const result = service.closeRoom({
+    roomCode,
+    creatorToken: "invalid-creator-token",
+  });
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(result.error.code, "NOT_AUTHORIZED");
+  assert.equal(
+    repository.findByCode(roomCode)?.status,
+    "active",
+  );
+});
+
+
+test("cannot close an already closed room", () => {
+  const {
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const first = service.closeRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(first.success, true);
+
+  const second = service.closeRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(second.success, false);
+
+  if (second.success) return;
+
+  assert.equal(second.error.code, "ROOM_CLOSED");
+});
+
+
+test("rejects invalid close payloads", () => {
+  const { service } = setup();
+
+  const result = service.closeRoom({
+    roomCode: "INVALID!",
+    creatorToken: "",
+  });
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(result.error.code, "INVALID_PAYLOAD");
+});
+
+
+test("rejects closing nonexistent rooms", () => {
+  const { service } = setup();
+
+  const result = service.closeRoom({
+    roomCode: "A7K9PQ",
+    creatorToken: "a-valid-length-token",
+  });
+
+  assert.equal(result.success, false);
+
+  if (result.success) return;
+
+  assert.equal(result.error.code, "ROOM_NOT_FOUND");
+});
+
+
+test("closed rooms reject new participants", () => {
+  const {
+    service,
+    roomCode,
+    creatorToken,
+  } = setupActiveRoom();
+
+  service.closeRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  const joined = service.joinRoom({
+    roomCode,
+    displayName: "Bob",
+  });
+
+  assert.equal(joined.success, false);
+
+  if (joined.success) return;
+
+  assert.equal(joined.error.code, "ROOM_CLOSED");
+});
+
+
+test("closed rooms reject messages", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+    creatorToken,
+  } = setupActiveRoom();
+
+  service.closeRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  const sent = service.sendMessage(
+    {
+      roomCode,
+      content: "This should not be stored.",
+    },
+    creatorId,
+  );
+
+  assert.equal(sent.success, false);
+
+  if (sent.success) return;
+
+  assert.equal(sent.error.code, "ROOM_CLOSED");
+  assert.equal(
+    repository.getMessages(roomCode).length,
+    0,
+  );
+});
+
+
+test("closing a room preserves its stored message history", () => {
+  const {
+    repository,
+    service,
+    roomCode,
+    creatorId,
+    creatorToken,
+  } = setupActiveRoom();
+
+  const sent = service.sendMessage(
+    {
+      roomCode,
+      content: "Message before closure",
+    },
+    creatorId,
+  );
+
+  assert.equal(sent.success, true);
+
+  const closed = service.closeRoom({
+    roomCode,
+    creatorToken,
+  });
+
+  assert.equal(closed.success, true);
+
+  const room = repository.findByCode(roomCode);
+
+  assert.ok(room);
+  assert.equal(room.status, "closed");
+  assert.equal(room.messages.length, 1);
+  assert.equal(
+    room.messages[0].content,
+    "Message before closure",
+  );
+});
+
