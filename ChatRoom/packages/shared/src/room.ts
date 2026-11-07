@@ -31,6 +31,7 @@ export interface RoomSnapshot extends RoomSummary {
 export interface CreateRoomResult {
   room: RoomSummary;
   creatorToken: string;
+  participantId: string;
 }
 
 export interface JoinRoomResult {

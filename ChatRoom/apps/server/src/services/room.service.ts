@@ -109,6 +109,7 @@ export class RoomService {
           data: {
             room: toRoomSummary(room),
             creatorToken,
+            participantId: creator.id,
           },
         };
       } catch (error) {

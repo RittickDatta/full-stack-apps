@@ -5,15 +5,20 @@ import type {
   ServerToClientEvents,
 } from "@chatroom/shared";
 
-const serverUrl = import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001";
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ??
+  "http://localhost:3001";
 
-export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io(
-  serverUrl,
-  {
-    autoConnect: false,
-    transports: ["websocket", "polling"],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-  },
-);
+export type RoomClientSocket = Socket<
+  ServerToClientEvents,
+  ClientToServerEvents
+>;
+
+export const socket: RoomClientSocket = io(SOCKET_URL, {
+  autoConnect: false,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  timeout: 10000,
+  transports: ["websocket"],
+});
