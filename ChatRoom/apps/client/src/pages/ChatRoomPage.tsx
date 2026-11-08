@@ -1,20 +1,11 @@
 
-import {
-  Link,
-  useParams,
-} from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
-import {
-  CreatorLobby,
-} from "../components/room/CreatorLobby";
+import { CreatorLobby } from "../components/room/CreatorLobby";
+import { MemberLobby } from "../components/room/MemberLobby";
+import { PageContainer } from "../components/ui/PageContainer";
 
-import {
-  PageContainer,
-} from "../components/ui/PageContainer";
-
-import {
-  useRoomSession,
-} from "../hooks/useRoomSession";
+import { useRoomSession } from "../hooks/useRoomSession";
 
 export function ChatRoomPage() {
   const { roomCode } = useParams<{
@@ -38,11 +29,11 @@ export function ChatRoomPage() {
           </h1>
 
           <p className="mt-4 text-slate-600">
-            You don't have an active session for
-            this room in the current browser tab.
+            You haven't joined this room in the
+            current browser session.
           </p>
 
-          <div className="mt-8 flex justify-center gap-4">
+          <div className="mt-8 flex flex-wrap justify-center gap-5">
             <Link
               to="/create"
               className="font-semibold text-indigo-700 hover:underline"
@@ -66,7 +57,11 @@ export function ChatRoomPage() {
     <PageContainer>
       <section className="mx-auto max-w-2xl py-10 sm:py-16">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <CreatorLobby />
+          {session.role === "creator" ? (
+            <CreatorLobby />
+          ) : (
+            <MemberLobby />
+          )}
         </div>
       </section>
     </PageContainer>
