@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -11,7 +12,6 @@ import { socket } from "../lib/socket";
 import { ensureSocketConnected } from "../lib/socket-connection";
 
 import type { RoomSession } from "../types/room-session";
-import type { RoomClosedEvent } from "@chatroom/shared";
 
 import { getRoomErrorMessage } from "../lib/room-errors";
 
@@ -26,6 +26,11 @@ interface RoomSessionContextValue {
 
   startRoom: () => Promise<boolean>;
   clearError: () => void;
+  lockRoom: () => Promise<boolean>;
+  closeRoom: () => Promise<boolean>;
+  leaveRoom: () => Promise<boolean>;
+  sessionNotice: string | null;
+  clearSessionNotice: () => void;
 }
 
 export const RoomSessionContext = createContext<RoomSessionContextValue | null>(
@@ -46,9 +51,21 @@ export function RoomSessionProvider({ children }: RoomSessionProviderProps) {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+
+  const activeRoomCodeRef = useRef<string | null>(null);
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+
+  const clearSessionNotice = useCallback(() => {
+    setSessionNotice(null);
+  }, []);
+
+  useEffect(() => {
+    activeRoomCodeRef.current = session?.roomCode ?? null;
+  }, [session]);
 
   useEffect(() => {
     const onDisconnect = () => {
@@ -70,61 +87,65 @@ export function RoomSessionProvider({ children }: RoomSessionProviderProps) {
     };
   }, []);
 
-  
-useEffect(() => {
-  const onRoomUpdated = (
-    event: Parameters<
-      import("@chatroom/shared").ServerToClientEvents[
-        "room:updated"
-      ]
-    >[0],
-  ) => {
-    setSession((current) => {
-      if (
-        !current ||
-        current.roomCode !== event.room.code
-      ) {
-        return current;
-      }
+  useEffect(() => {
+    const onRoomUpdated = (
+      event: Parameters<
+        import("@chatroom/shared").ServerToClientEvents["room:updated"]
+      >[0],
+    ) => {
+      setSession((current) => {
+        if (!current || current.roomCode !== event.room.code) {
+          return current;
+        }
 
-      const status = event.room.status;
+        const status = event.room.status;
 
-      // A closed room is no longer a valid session.
-      if (status === "closed") {
-        return null;
-      }
+        // A closed room is no longer a valid session.
+        if (status === "closed") {
+          return null;
+        }
 
-      return {
-        ...current,
-        room: event.room,
-        phase:
-          status === "locked"
-            ? "locked"
-            : status === "created"
-              ? "created"
-              : "active",
-      };
-    });
-  };
+        return {
+          ...current,
+          room: event.room,
+          phase:
+            status === "locked"
+              ? "locked"
+              : status === "created"
+                ? "created"
+                : "active",
+        };
+      });
+    };
 
-  socket.on("room:updated", onRoomUpdated);
+    socket.on("room:updated", onRoomUpdated);
 
-  return () => {
-    socket.off("room:updated", onRoomUpdated);
-  };
-}, []);
-
+    return () => {
+      socket.off("room:updated", onRoomUpdated);
+    };
+  }, []);
 
   useEffect(() => {
-    const onRoomClosed = (event: RoomClosedEvent) => {
+    const onRoomClosed = (
+      event: Parameters<
+        import("@chatroom/shared").ServerToClientEvents["room:closed"]
+      >[0],
+    ) => {
+      if (activeRoomCodeRef.current !== event.roomCode) {
+        return;
+      }
       setSession((current) => {
         if (current?.roomCode !== event.roomCode) {
           return current;
         }
 
-        setError("This room has been closed.");
         return null;
       });
+
+      // Use the reason supplied by the backend.
+      setSessionNotice(
+        `Room ${event.roomCode} was closed. Reason: ${event.reason}`,
+      );
     };
 
     socket.on("room:closed", onRoomClosed);
@@ -161,6 +182,8 @@ useEffect(() => {
         }
 
         const created = result.data;
+
+        setSessionNotice(null);
 
         if (!socket.connected) {
           setError(
@@ -282,6 +305,8 @@ useEffect(() => {
         }
 
         const joined = result.data;
+        
+        setSessionNotice(null);
 
         setSession({
           role: "member",
@@ -305,6 +330,160 @@ useEffect(() => {
     [isBusy, session],
   );
 
+  const lockRoom = useCallback(async (): Promise<boolean> => {
+    if (!session || session.role !== "creator") {
+      setError("Only the room creator can lock this room.");
+      return false;
+    }
+
+    if (session.room.status !== "active") {
+      setError("Only an active room can be locked.");
+      return false;
+    }
+
+    if (isBusy) return false;
+
+    if (!socket.connected) {
+      setError("Connection lost. Please create a new room.");
+      return false;
+    }
+
+    setIsBusy(true);
+    setError(null);
+
+    const connectionId = socket.id;
+
+    try {
+      const result = await socket.timeout(10000).emitWithAck("room:lock", {
+        roomCode: session.roomCode,
+        creatorToken: session.creatorToken,
+      });
+
+      if (!socket.connected || socket.id !== connectionId) {
+        setError("Connection changed while locking the room.");
+        return false;
+      }
+
+      if (!result.success) {
+        setError(result.error.message);
+        return false;
+      }
+
+      setSession((current) =>
+        current?.roomCode === session.roomCode
+          ? {
+              ...current,
+              room: {
+                ...current.room,
+                ...result.data,
+              },
+              phase: "locked",
+            }
+          : current,
+      );
+
+      return true;
+    } catch {
+      setError("Unable to lock the room. Please try again.");
+      return false;
+    } finally {
+      setIsBusy(false);
+    }
+  }, [session, isBusy]);
+
+  const closeRoom = useCallback(async (): Promise<boolean> => {
+    if (!session || session.role !== "creator") {
+      setError("Only the room creator can close this room.");
+      return false;
+    }
+
+    if (isBusy) return false;
+
+    if (!socket.connected) {
+      setError("Connection lost. Unable to close the room.");
+      return false;
+    }
+
+    setIsBusy(true);
+    setError(null);
+
+    const connectionId = socket.id;
+
+    try {
+      const result = await socket.timeout(10000).emitWithAck("room:close", {
+        roomCode: session.roomCode,
+        creatorToken: session.creatorToken,
+      });
+
+      if (!socket.connected || socket.id !== connectionId) {
+        setError("Connection changed while closing the room.");
+        return false;
+      }
+
+      if (!result.success) {
+        setError(result.error.message);
+        return false;
+      }
+
+      setSessionNotice("You closed the room.");
+      setSession(null);
+      setError(null);
+
+      return true;
+    } catch {
+      setError("Unable to close the room. Please try again.");
+      return false;
+    } finally {
+      setIsBusy(false);
+    }
+  }, [session, isBusy]);
+
+  const leaveRoom = useCallback(async (): Promise<boolean> => {
+    if (!session) {
+      setError("You are not currently in a room.");
+      return false;
+    }
+
+    if (isBusy) return false;
+
+    if (!socket.connected) {
+      setError("Connection lost. Unable to leave the room.");
+      return false;
+    }
+
+    setIsBusy(true);
+    setError(null);
+
+    const connectionId = socket.id;
+
+    try {
+      const result = await socket.timeout(10000).emitWithAck("room:leave", {
+        roomCode: session.roomCode,
+      });
+
+      if (!socket.connected || socket.id !== connectionId) {
+        setError("Connection changed while leaving the room.");
+        return false;
+      }
+
+      if (!result.success) {
+        setError(result.error.message);
+        return false;
+      }
+
+      setSessionNotice("You left the room.");
+      setSession(null);
+      setError(null);
+
+      return true;
+    } catch {
+      setError("Unable to leave the room. Please try again.");
+      return false;
+    } finally {
+      setIsBusy(false);
+    }
+  }, [session, isBusy]);
+
   const value = useMemo(
     () => ({
       session,
@@ -314,8 +493,26 @@ useEffect(() => {
       startRoom,
       joinRoom,
       clearError,
+      lockRoom,
+      leaveRoom,
+      closeRoom,
+      sessionNotice,
+      clearSessionNotice,
     }),
-    [session, isBusy, error, createRoom, startRoom, joinRoom, clearError],
+    [
+      session,
+      isBusy,
+      error,
+      createRoom,
+      startRoom,
+      joinRoom,
+      clearError,
+      lockRoom,
+      closeRoom,
+      leaveRoom,
+      sessionNotice,
+      clearSessionNotice,
+    ],
   );
 
   return (

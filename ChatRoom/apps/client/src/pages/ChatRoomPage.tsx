@@ -1,4 +1,3 @@
-
 import { Link, useParams } from "react-router-dom";
 
 import { CreatorLobby } from "../components/room/CreatorLobby";
@@ -6,21 +5,18 @@ import { ChatRoomContent } from "../components/chat/ChatRoomContent";
 import { PageContainer } from "../components/ui/PageContainer";
 
 import { useRoomSession } from "../hooks/useRoomSession";
+import { RoomSidebar } from "../components/room/RoomSidebar";
 
 export function ChatRoomPage() {
   const { roomCode } = useParams<{
     roomCode: string;
   }>();
 
-  const { session } = useRoomSession();
+  const { session, sessionNotice } = useRoomSession();
 
-  const normalizedRoomCode =
-    roomCode?.trim().toUpperCase() ?? "";
+  const normalizedRoomCode = roomCode?.trim().toUpperCase() ?? "";
 
-  if (
-    !session ||
-    session.roomCode !== normalizedRoomCode
-  ) {
+  if (!session || session.roomCode !== normalizedRoomCode) {
     return (
       <PageContainer>
         <section className="mx-auto max-w-xl py-16 text-center">
@@ -29,10 +25,19 @@ export function ChatRoomPage() {
           </h1>
 
           <p className="mt-4 text-slate-600">
-            You don't have an active session for
-            this room in the current browser tab.
+            You don't have an active session for this room in the current
+            browser tab.
           </p>
 
+          {sessionNotice && (
+            <p
+              role="status"
+              className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-indigo-800"
+            >
+              {sessionNotice}
+            </p>
+          )}
+          
           <div className="mt-8 flex flex-wrap justify-center gap-5">
             <Link
               to="/create"
@@ -53,10 +58,7 @@ export function ChatRoomPage() {
     );
   }
 
-  if (
-    session.role === "creator" &&
-    session.room.status === "created"
-  ) {
+  if (session.role === "creator" && session.room.status === "created") {
     return (
       <PageContainer>
         <section className="mx-auto max-w-2xl py-10 sm:py-16">
@@ -71,10 +73,13 @@ export function ChatRoomPage() {
   return (
     <PageContainer>
       <section className="py-6 sm:py-10">
-        <ChatRoomContent
-          key={session.roomCode}
-          session={session}
-        />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <div className="min-w-0">
+            <ChatRoomContent key={session.roomCode} session={session} />
+          </div>
+
+          <RoomSidebar session={session} />
+        </div>
       </section>
     </PageContainer>
   );
