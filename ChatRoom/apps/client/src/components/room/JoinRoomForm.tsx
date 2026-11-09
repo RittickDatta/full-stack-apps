@@ -1,5 +1,4 @@
-
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { ROOM_CODE_LENGTH } from "@chatroom/shared";
@@ -13,25 +12,20 @@ const MAX_NAME_LENGTH = 30;
 export function JoinRoomForm() {
   const navigate = useNavigate();
 
-  const {
-    session,
-    joinRoom,
-    isBusy,
-    error,
-    clearError,
-  } = useRoomSession();
+  const { session, joinRoom, isBusy, error, clearError } = useRoomSession();
 
   const [roomCode, setRoomCode] = useState("");
   const [displayName, setDisplayName] = useState("");
+
+  const roomCodeRef = useRef<HTMLInputElement>(null);
+  const displayNameRef = useRef<HTMLInputElement>(null);
 
   const [fieldErrors, setFieldErrors] = useState<{
     roomCode?: string;
     displayName?: string;
   }>({});
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (isBusy || session) return;
@@ -44,32 +38,30 @@ export function JoinRoomForm() {
       displayName?: string;
     } = {};
 
-    if (
-      code.length !== ROOM_CODE_LENGTH ||
-      !/^[A-Z0-9]+$/.test(code)
-    ) {
-      errors.roomCode =
-        `Enter a valid ${ROOM_CODE_LENGTH}-character room code.`;
+    if (code.length !== ROOM_CODE_LENGTH || !/^[A-Z0-9]+$/.test(code)) {
+      errors.roomCode = `Enter a valid ${ROOM_CODE_LENGTH}-character room code.`;
     }
 
-    if (
-      name.length < MIN_NAME_LENGTH ||
-      name.length > MAX_NAME_LENGTH
-    ) {
-      errors.displayName =
-        `Your name must be ${MIN_NAME_LENGTH}–${MAX_NAME_LENGTH} characters.`;
+    if (name.length < MIN_NAME_LENGTH || name.length > MAX_NAME_LENGTH) {
+      errors.displayName = `Your name must be ${MIN_NAME_LENGTH}–${MAX_NAME_LENGTH} characters.`;
     }
 
     setFieldErrors(errors);
 
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      if (errors.roomCode) {
+        roomCodeRef.current?.focus();
+      } else if (errors.displayName) {
+        displayNameRef.current?.focus();
+      }
+
+      return;
+    }
 
     const joinedCode = await joinRoom(code, name);
 
     if (joinedCode) {
-      navigate(
-        `/room/${encodeURIComponent(joinedCode)}`,
-      );
+      navigate(`/room/${encodeURIComponent(joinedCode)}`);
     }
   }
 
@@ -90,6 +82,7 @@ export function JoinRoomForm() {
         </label>
 
         <input
+          ref={roomCodeRef}
           id="join-room-code"
           name="roomCode"
           type="text"
@@ -102,9 +95,7 @@ export function JoinRoomForm() {
           disabled={isBusy || Boolean(session)}
           aria-invalid={Boolean(fieldErrors.roomCode)}
           aria-describedby={
-            fieldErrors.roomCode
-              ? "join-code-error"
-              : "join-code-help"
+            fieldErrors.roomCode ? "join-code-error" : "join-code-help"
           }
           onChange={(event) => {
             setRoomCode(event.target.value.toUpperCase());
@@ -126,10 +117,7 @@ export function JoinRoomForm() {
             {fieldErrors.roomCode}
           </p>
         ) : (
-          <p
-            id="join-code-help"
-            className="mt-2 text-sm text-slate-500"
-          >
+          <p id="join-code-help" className="mt-2 text-sm text-slate-500">
             Ask the room creator for their code.
           </p>
         )}
@@ -144,6 +132,7 @@ export function JoinRoomForm() {
         </label>
 
         <input
+          ref={displayNameRef}
           id="join-display-name"
           name="displayName"
           type="text"
@@ -154,9 +143,7 @@ export function JoinRoomForm() {
           disabled={isBusy || Boolean(session)}
           aria-invalid={Boolean(fieldErrors.displayName)}
           aria-describedby={
-            fieldErrors.displayName
-              ? "join-name-error"
-              : "join-name-help"
+            fieldErrors.displayName ? "join-name-error" : "join-name-help"
           }
           onChange={(event) => {
             setDisplayName(event.target.value);
@@ -178,10 +165,7 @@ export function JoinRoomForm() {
             {fieldErrors.displayName}
           </p>
         ) : (
-          <p
-            id="join-name-help"
-            className="mt-2 text-sm text-slate-500"
-          >
+          <p id="join-name-help" className="mt-2 text-sm text-slate-500">
             Other participants will see this name.
           </p>
         )}
@@ -196,11 +180,7 @@ export function JoinRoomForm() {
         </div>
       )}
 
-      <Button
-        type="submit"
-        fullWidth
-        disabled={isBusy || Boolean(session)}
-      >
+      <Button type="submit" fullWidth disabled={isBusy || Boolean(session)}>
         {isBusy ? "Joining room..." : "Join room"}
       </Button>
     </form>

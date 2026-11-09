@@ -59,6 +59,7 @@
 html {
   min-width: 320px;
   scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
 }
 
 body {
@@ -67,6 +68,7 @@ body {
   margin: 0;
   background: var(--cr-bg);
   color: var(--cr-text);
+  overflow-wrap: break-word;
 }
 
 button,
@@ -85,4 +87,36 @@ button:disabled {
 
 #root {
   min-height: 100vh;
+}
+
+:where(
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  summary
+):focus-visible {
+  outline: 3px solid #4f46e5;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
 }

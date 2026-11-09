@@ -1,21 +1,27 @@
-
 import { Outlet } from "react-router-dom";
+
 import { Header } from "./Header";
 import { Footer } from "./Footer";
+import { RouteFocusManager } from "./RouteFocusManager";
+import { SessionNotice } from "./SessionNotice";
 
 export function AppLayout() {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="flex min-h-dvh flex-col">
       <a
         href="#main-content"
-        className="sr-only rounded-md bg-white px-4 py-2 text-indigo-700 focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50"
+        className="sr-only fixed left-4 top-4 z-50 rounded-lg bg-indigo-700 px-4 py-3 font-semibold text-white focus:not-sr-only"
       >
         Skip to main content
       </a>
 
+      <RouteFocusManager />
+
       <Header />
 
-      <main id="main-content" className="flex-1">
+      <SessionNotice />
+
+      <main id="main-content" tabIndex={-1} className="min-w-0 flex-1">
         <Outlet />
       </main>
 

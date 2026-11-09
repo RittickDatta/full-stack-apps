@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from "react";
 
 interface RoomActionDialogProps {
@@ -23,6 +22,7 @@ export function RoomActionDialog({
   onCancel,
 }: RoomActionDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -30,10 +30,21 @@ export function RoomActionDialog({
 
     if (open && !dialog.open) {
       dialog.showModal();
+
+      // Focus the safe action first for destructive dialogs.
+      const cancelButton = dialog.querySelector<HTMLButtonElement>(
+        '[data-dialog-cancel="true"]',
+      );
+
+      if (destructive) {
+        cancelButton?.focus();
+      } else {
+        confirmButtonRef.current?.focus();
+      }
     } else if (!open && dialog.open) {
       dialog.close();
     }
-  }, [open]);
+  }, [open, destructive]);
 
   return (
     <dialog
@@ -46,14 +57,16 @@ export function RoomActionDialog({
 
         onCancel();
       }}
+      onClose={() => {
+        if (open && !isBusy) {
+          onCancel();
+        }
+      }}
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-xl backdrop:bg-slate-950/50"
       aria-labelledby="room-action-title"
       aria-describedby="room-action-description"
     >
-      <h2
-        id="room-action-title"
-        className="text-xl font-bold"
-      >
+      <h2 id="room-action-title" className="text-xl font-bold">
         {title}
       </h2>
 
@@ -67,22 +80,18 @@ export function RoomActionDialog({
       <div className="mt-6 flex justify-end gap-3">
         <button
           type="button"
+          data-dialog-cancel="true"
           onClick={onCancel}
           disabled={isBusy}
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           Cancel
         </button>
 
         <button
+          ref={confirmButtonRef}
           type="button"
           onClick={onConfirm}
           disabled={isBusy}
-          className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
-            destructive
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-indigo-600 hover:bg-indigo-700"
-          }`}
         >
           {isBusy ? "Processing..." : confirmLabel}
         </button>

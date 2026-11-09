@@ -90,6 +90,8 @@ export function ChatComposer({
             }}
             onKeyDown={handleKeyDown}
             className="max-h-40 min-h-12 w-full resize-y rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:bg-slate-100"
+            aria-describedby="chat-composer-help chat-character-count"
+            aria-invalid={isOverLimit}
           />
         </div>
 
@@ -98,9 +100,17 @@ export function ChatComposer({
         </Button>
       </div>
 
-      <div className="mt-2 flex justify-between gap-3 text-xs text-slate-500">
-        <span>Enter to send · Shift+Enter for a new line</span>
-        <span>
+      <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-slate-500">
+        <span id="chat-composer-help">
+          Enter to send. Shift+Enter for a new line.
+        </span>
+
+        <span
+          id="chat-character-count"
+          className={
+            isOverLimit ? "font-semibold text-red-700" : "text-slate-500"
+          }
+        >
           {content.length}/{MAX_MESSAGE_LENGTH}
         </span>
       </div>

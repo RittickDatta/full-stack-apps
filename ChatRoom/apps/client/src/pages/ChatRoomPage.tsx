@@ -5,7 +5,7 @@ import { ChatRoomContent } from "../components/chat/ChatRoomContent";
 import { PageContainer } from "../components/ui/PageContainer";
 
 import { useRoomSession } from "../hooks/useRoomSession";
-import { RoomSidebar } from "../components/room/RoomSidebar";
+import { ResponsiveRoomSidebar } from "../components/room/ResponsiveRoomSidebar";
 
 export function ChatRoomPage() {
   const { roomCode } = useParams<{
@@ -37,7 +37,7 @@ export function ChatRoomPage() {
               {sessionNotice}
             </p>
           )}
-          
+
           <div className="mt-8 flex flex-wrap justify-center gap-5">
             <Link
               to="/create"
@@ -74,11 +74,13 @@ export function ChatRoomPage() {
     <PageContainer>
       <section className="py-6 sm:py-10">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="min-w-0">
+          <div className="order-2 min-w-0 lg:order-1">
             <ChatRoomContent key={session.roomCode} session={session} />
           </div>
 
-          <RoomSidebar session={session} />
+          <div className="order-1 lg:order-2">
+            <ResponsiveRoomSidebar session={session} />
+          </div>
         </div>
       </section>
     </PageContainer>
