@@ -17,6 +17,16 @@ import { registerChatHandlers } from "../dist/socket/chat.handlers.js";
 
 import { registerPresenceHandlers } from "../dist/socket/presence.handlers.js";
 
+import { beforeEach } from "node:test";
+
+import {
+  rateLimitService,
+} from "../dist/socket/rate-limit.js";
+
+beforeEach(() => {
+  rateLimitService.clear();
+});
+
 test("room:create returns a successful acknowledgement", async () => {
   const httpServer = createServer();
 

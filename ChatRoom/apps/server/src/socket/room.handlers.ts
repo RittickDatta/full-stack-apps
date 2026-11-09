@@ -9,6 +9,9 @@ import {
   clearSocketSession,
 } from "./socket-session.js";
 
+import { RATE_LIMITS } from "../config/rate-limits.js";
+import { consumeSocketRateLimit } from "./rate-limit.js";
+
 import type { RoomSocket } from "./types.js";
 
 export function registerRoomHandlers(
@@ -21,6 +24,24 @@ export function registerRoomHandlers(
 
   socket.on("room:create", (payload, acknowledge) => {
     void executeSocketHandler("room:create", acknowledge, (ack) => {
+      const limit = consumeSocketRateLimit(
+        socket,
+        "room:create",
+        RATE_LIMITS.roomCreate,
+      );
+
+      if (!limit.allowed) {
+        acknowledge({
+          success: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "Too many room creation attempts. Please try again later.",
+          },
+        });
+
+        return;
+      }
+
       const result = roomService.createRoom(payload);
 
       if (result.success) {
@@ -88,6 +109,24 @@ export function registerRoomHandlers(
   // JOIN ROOM
   socket.on("room:join", (payload, acknowledge) => {
     void executeSocketHandler("room:join", acknowledge, async (ack) => {
+      const limit = consumeSocketRateLimit(
+        socket,
+        "room:join",
+        RATE_LIMITS.roomJoin,
+      );
+
+      if (!limit.allowed) {
+        acknowledge({
+          success: false,
+          error: {
+            code: "RATE_LIMITED",
+            message: "Too many join attempts. Please wait before trying again.",
+          },
+        });
+
+        return;
+      }
+
       if (isSocketInRoom(socket)) {
         ack(
           ackError("NOT_AUTHORIZED", "This connection is already in a room."),
@@ -346,9 +385,10 @@ export function registerRoomHandlers(
       pendingCreatedRoomCodes.delete(requestedRoomCode);
 
       // Notify everyone before removing their room membership.
-      socket.nsp
-        .to(requestedRoomCode)
-        .emit("room:closed", { roomCode: requestedRoomCode, reason: "creator_closed" });
+      socket.nsp.to(requestedRoomCode).emit("room:closed", {
+        roomCode: requestedRoomCode,
+        reason: "creator_closed",
+      });
 
       // Clear sessions for all currently joined sockets.
       for (const joinedSocket of socket.nsp.sockets.values()) {

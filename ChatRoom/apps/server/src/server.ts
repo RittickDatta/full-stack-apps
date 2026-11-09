@@ -5,7 +5,8 @@ import { env } from "./config/env.js";
 import { createSocketServer } from "./socket/index.js";
 
 const httpServer = createServer(app);
-const { io, stopCleanupScheduler } = createSocketServer(httpServer);
+const { io, stopCleanupScheduler, rateLimitCleanupInterval } =
+  createSocketServer(httpServer);
 
 httpServer.listen(env.PORT, () => {
   console.log(`ChatRoom server running at http://localhost:${env.PORT}`);
@@ -29,6 +30,7 @@ function shutdown(signal: string) {
     }
 
     stopCleanupScheduler();
+    clearInterval(rateLimitCleanupInterval);
 
     console.log("Socket.IO and HTTP server closed.");
   });

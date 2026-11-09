@@ -24,8 +24,14 @@ import { RoomCleanupService } from "../services/room-cleanup.service.js";
 
 import { startRoomCleanupScheduler } from "../services/room-cleanup.scheduler.js";
 import { clearSocketSession } from "./socket-session.js";
+import { rateLimitService } from "./rate-limit.js";
 
 export function createSocketServer(httpServer: HttpServer) {
+  const allowedOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   const io = new Server<
     ClientToServerEvents,
     ServerToClientEvents,
@@ -33,11 +39,28 @@ export function createSocketServer(httpServer: HttpServer) {
     SocketData
   >(httpServer, {
     cors: {
-      origin: env.CLIENT_ORIGIN,
+      origin: allowedOrigins,
       methods: ["GET", "POST"],
     },
     transports: ["websocket", "polling"],
+    maxHttpBufferSize: 16 * 1024,
+
+    allowRequest: (request, callback) => {
+      const origin = request.headers.origin;
+
+      if (typeof origin !== "string" || !allowedOrigins.includes(origin)) {
+        callback("Origin not allowed", false);
+        return;
+      }
+
+      callback(null, true);
+    },
   });
+
+  const rateLimitCleanupInterval = setInterval(() => {
+    rateLimitService.cleanup();
+  }, 60_000);
+  rateLimitCleanupInterval.unref();
 
   const roomService = new RoomService(roomRepository);
 
@@ -91,5 +114,5 @@ export function createSocketServer(httpServer: HttpServer) {
     });
   });
 
-  return { io, stopCleanupScheduler };
+  return { io, stopCleanupScheduler, rateLimitCleanupInterval };
 }
