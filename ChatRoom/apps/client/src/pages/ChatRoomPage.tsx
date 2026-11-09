@@ -2,7 +2,7 @@
 import { Link, useParams } from "react-router-dom";
 
 import { CreatorLobby } from "../components/room/CreatorLobby";
-import { MemberLobby } from "../components/room/MemberLobby";
+import { ChatRoomContent } from "../components/chat/ChatRoomContent";
 import { PageContainer } from "../components/ui/PageContainer";
 
 import { useRoomSession } from "../hooks/useRoomSession";
@@ -17,10 +17,10 @@ export function ChatRoomPage() {
   const normalizedRoomCode =
     roomCode?.trim().toUpperCase() ?? "";
 
-  const hasMatchingSession =
-    session?.roomCode === normalizedRoomCode;
-
-  if (!hasMatchingSession) {
+  if (
+    !session ||
+    session.roomCode !== normalizedRoomCode
+  ) {
     return (
       <PageContainer>
         <section className="mx-auto max-w-xl py-16 text-center">
@@ -29,8 +29,8 @@ export function ChatRoomPage() {
           </h1>
 
           <p className="mt-4 text-slate-600">
-            You haven't joined this room in the
-            current browser session.
+            You don't have an active session for
+            this room in the current browser tab.
           </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-5">
@@ -53,16 +53,28 @@ export function ChatRoomPage() {
     );
   }
 
+  if (
+    session.role === "creator" &&
+    session.room.status === "created"
+  ) {
+    return (
+      <PageContainer>
+        <section className="mx-auto max-w-2xl py-10 sm:py-16">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <CreatorLobby />
+          </div>
+        </section>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer>
-      <section className="mx-auto max-w-2xl py-10 sm:py-16">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          {session.role === "creator" ? (
-            <CreatorLobby />
-          ) : (
-            <MemberLobby />
-          )}
-        </div>
+      <section className="py-6 sm:py-10">
+        <ChatRoomContent
+          key={session.roomCode}
+          session={session}
+        />
       </section>
     </PageContainer>
   );

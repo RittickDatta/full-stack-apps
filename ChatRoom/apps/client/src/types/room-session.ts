@@ -1,11 +1,17 @@
 
-import type { RoomSummary } from "@chatroom/shared";
+import type {
+  RoomSummary,
+  RoomSnapshot,
+} from "@chatroom/shared";
+
+export type SessionRoom =
+  RoomSummary | RoomSnapshot;
 
 interface BaseRoomSession {
   roomCode: string;
   participantId: string;
   displayName: string;
-  room: RoomSummary;
+  room: SessionRoom;
   phase: "created" | "active" | "locked";
 }
 
