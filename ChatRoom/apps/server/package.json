@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
-    "build": "tsc",
-    "start": "node --env-file=.env dist/server.js",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
     "test": "npm run build && node --test tests/*.test.mjs"

@@ -8,7 +8,12 @@ const httpServer = createServer(app);
 const { io, stopCleanupScheduler, rateLimitCleanupInterval } =
   createSocketServer(httpServer);
 
-httpServer.listen(env.PORT, () => {
+const port = Number(process.env.PORT ?? 3001);
+if (!Number.isSafeInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PORT must be a valid TCP port");
+}
+
+httpServer.listen(port, "0.0.0.0", () => {
   console.log(`ChatRoom server running at http://localhost:${env.PORT}`);
 
   console.log(`Socket.IO ready on port ${env.PORT}`);

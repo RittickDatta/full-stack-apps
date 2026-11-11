@@ -26,7 +26,7 @@ app.get("/", (_req, res) => {
   });
 });
 
-app.use("/api/health", healthRouter);
+app.use("/health", healthRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
