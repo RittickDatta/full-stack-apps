@@ -14,7 +14,11 @@
     "typecheck": "npm run build -w @chatroom/shared && npm run typecheck -w @chatroom/server && npm run typecheck -w @chatroom/client",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present"
+    "clean": "npm run clean --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "engines": {
     "node": ">=24 <25"
@@ -26,6 +30,8 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
     "concurrently": "^10.0.6"
   }
 }
