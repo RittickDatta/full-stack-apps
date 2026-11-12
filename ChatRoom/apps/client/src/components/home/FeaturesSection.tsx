@@ -37,7 +37,7 @@ export function FeaturesSection() {
       <PageContainer>
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-bold uppercase tracking-widest text-indigo-600">
-            Why RoomChat?
+            Why ChatRoom?
           </p>
 
           <h2

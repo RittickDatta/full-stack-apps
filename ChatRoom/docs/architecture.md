@@ -24,7 +24,7 @@ flowchart TD
 
 ## Backend Architecture
 
-RoomChat follows a layered architecture to separate networking, business logic, and data storage.
+ChatRoom follows a layered architecture to separate networking, business logic, and data storage.
 
 ### Socket Handlers
 
@@ -109,7 +109,7 @@ stateDiagram-v2
 
 ## Technical Decisions and Trade-offs
 
-RoomChat was designed as a lightweight, real-time chat application with an emphasis on maintainability, type safety, security, and testability.
+ChatRoom was designed as a lightweight, real-time chat application with an emphasis on maintainability, type safety, security, and testability.
 
 The following decisions shaped its architecture.
 
@@ -172,7 +172,7 @@ Zod was selected to provide consistent and maintainable validation rules.
 
 ### 4. npm Workspaces for Monorepo Management
 
-**Decision:** Organize RoomChat as an npm-workspaces monorepo.
+**Decision:** Organize ChatRoom as an npm-workspaces monorepo.
 
 ```text
 ChatRoom/
@@ -419,7 +419,7 @@ The current implementation intentionally prioritizes simplicity and temporary co
 
 ## Future Architecture
 
-If RoomChat needs to support more users and persistent conversations, the architecture could evolve toward:
+If ChatRoom needs to support more users and persistent conversations, the architecture could evolve toward:
 
 ```text
 React Frontend
@@ -441,7 +441,7 @@ This would require changes to session recovery, distributed rate limiting, room 
 
 ## Conclusion
 
-RoomChat demonstrates the use of a layered, type-safe architecture for building real-time applications.
+ChatRoom demonstrates the use of a layered, type-safe architecture for building real-time applications.
 
 The key engineering priorities were:
 

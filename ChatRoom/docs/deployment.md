@@ -1,8 +1,8 @@
-# RoomChat Deployment Guide
+# ChatRoom Deployment Guide
 
 ## Architecture
 
-RoomChat uses separate frontend and backend hosting.
+ChatRoom uses separate frontend and backend hosting.
 
 - **Frontend:** Vercel
 - **Backend:** Render
@@ -13,7 +13,7 @@ RoomChat uses separate frontend and backend hosting.
 
 Configure a Node.js web service.
 
-**Root directory:** `ChatRoom` if the repository contains RoomChat in that subdirectory; otherwise use the repository root.
+**Root directory:** `ChatRoom` if the repository contains ChatRoom in that subdirectory; otherwise use the repository root.
 
 **Build command:**
 
@@ -61,7 +61,7 @@ Configure:
 
 **Framework:** Vite
 
-**Root directory:** `ChatRoom` if RoomChat is nested in a larger repository; otherwise use the repository root.
+**Root directory:** `ChatRoom` if ChatRoom is nested in a larger repository; otherwise use the repository root.
 
 **Install command:**
 
@@ -116,7 +116,7 @@ Add `vercel.json` to the Vercel project root:
 
 ## Known Hosting Limitations
 
-RoomChat uses in-memory storage and is intended to run on one backend instance.
+ChatRoom uses in-memory storage and is intended to run on one backend instance.
 
 Restarting the backend removes active rooms.
 

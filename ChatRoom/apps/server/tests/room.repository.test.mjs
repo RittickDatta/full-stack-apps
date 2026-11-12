@@ -194,7 +194,7 @@ test("stores messages in active rooms", () => {
     id: "message-1",
     roomCode: "A7K9PQ",
     type: "chat",
-    content: "Hello RoomChat!",
+    content: "Hello ChatRoom!",
     senderId: "p1",
     senderName: "Alice",
     createdAt: "2026-01-01T10:10:00.000Z",
@@ -205,7 +205,7 @@ test("stores messages in active rooms", () => {
   assert.equal(messages.length, 1);
   assert.equal(
     messages[0].content,
-    "Hello RoomChat!",
+    "Hello ChatRoom!",
   );
 });
 

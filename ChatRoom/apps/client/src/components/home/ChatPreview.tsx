@@ -30,7 +30,7 @@ export function ChatPreview() {
   return (
     <div
       role="img"
-      aria-label="Illustration of a RoomChat conversation between Alice and Bob"
+      aria-label="Illustration of a ChatRoom conversation between Alice and Bob"
       className="mx-auto w-full max-w-lg"
     >
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-indigo-100/60">

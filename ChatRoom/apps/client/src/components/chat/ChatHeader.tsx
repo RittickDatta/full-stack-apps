@@ -17,7 +17,7 @@ export function ChatHeader({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-            RoomChat
+            ChatRoom
           </p>
 
           <h1 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">

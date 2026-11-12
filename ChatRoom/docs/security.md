@@ -1,8 +1,8 @@
-# RoomChat Security
+# ChatRoom Security
 
 ## Overview
 
-RoomChat is a temporary, room-based chat application.
+ChatRoom is a temporary, room-based chat application.
 
 It does not require permanent user accounts.
 
@@ -10,7 +10,7 @@ Security is enforced primarily through server-side validation, socket-session au
 
 ## Input Validation
 
-RoomChat uses shared Zod schemas to validate incoming requests.
+ChatRoom uses shared Zod schemas to validate incoming requests.
 
 Examples include:
 
@@ -31,7 +31,7 @@ Client-provided role information is not sufficient to grant creator privileges.
 
 ## Rate Limiting
 
-RoomChat limits selected room and chat operations to reduce abuse and excessive resource consumption.
+ChatRoom limits selected room and chat operations to reduce abuse and excessive resource consumption.
 
 Rate limiting is enforced on the backend.
 

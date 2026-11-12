@@ -66,10 +66,10 @@ test("rejects empty messages", () => {
 test("accepts valid multiline messages", () => {
   const result = sendMessageSchema.parse({
     roomCode: "A7K9PQ",
-    content: "Hello\nRoomChat!",
+    content: "Hello\ChatRoom!",
   });
 
-  assert.equal(result.content, "Hello\nRoomChat!");
+  assert.equal(result.content, "Hello\ChatRoom!");
 });
 
 test("rejects invalid creator tokens", () => {

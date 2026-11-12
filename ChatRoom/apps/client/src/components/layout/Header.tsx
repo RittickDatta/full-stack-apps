@@ -1,4 +1,3 @@
-
 import { Link, NavLink } from "react-router-dom";
 import { PageContainer } from "../ui/PageContainer";
 
@@ -16,7 +15,7 @@ export function Header() {
           <Link
             to="/"
             className="flex items-center gap-2 text-xl font-bold tracking-tight text-slate-900"
-            aria-label="RoomChat home"
+            aria-label="ChatRoom home"
           >
             <span
               aria-hidden="true"
@@ -24,7 +23,7 @@ export function Header() {
             >
               RC
             </span>
-            RoomChat
+            ChatRoom
           </Link>
 
           <nav

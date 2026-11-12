@@ -1,6 +1,6 @@
-# RoomChat — Socket.IO Event Reference
+# ChatRoom — Socket.IO Event Reference
 
-This document describes the real-time events exchanged between the RoomChat React client and the Express/Socket.IO server.
+This document describes the real-time events exchanged between the ChatRoom React client and the Express/Socket.IO server.
 
 > **Source of truth:** `packages/shared/src/socket-events.ts`, `packages/shared/src/room.ts`, `packages/shared/src/errors.ts`, and `packages/shared/src/schemas.ts`. Review these files when changing event names, payload fields, or response types. The examples below are illustrative, not a substitute for the shared TypeScript contracts.
 
@@ -118,7 +118,7 @@ Use the error code for client-side decisions and the user-facing message for dis
 ```mermaid
 sequenceDiagram
     participant A as Alice (creator)
-    participant S as RoomChat server
+    participant S as ChatRoom server
     participant B as Bob (member)
 
     A->>S: room:create (display name)
@@ -137,7 +137,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant A as Alice
-    participant S as RoomChat server
+    participant S as ChatRoom server
     participant B as Bob
 
     A->>S: chat:send (validated message payload)
@@ -154,7 +154,7 @@ Whether the sender also receives the broadcast depends on the current server imp
 ```mermaid
 sequenceDiagram
     participant A as Creator
-    participant S as RoomChat server
+    participant S as ChatRoom server
     participant B as Member
 
     A->>S: room:lock
