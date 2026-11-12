@@ -1,4 +1,4 @@
-
+```mermaid
 flowchart TD
     A["Alice's Browser"]
     B["Bob's Browser"]
@@ -20,7 +20,7 @@ flowchart TD
 
     C -.-> G
     D -.-> G
-
+```
 
 ## Backend Architecture
 
@@ -87,7 +87,7 @@ Responsibilities:
 - The repository can be replaced without rewriting the entire application.
 - Socket.IO acknowledgements provide consistent success and error handling.
 
-
+```mermaid
 stateDiagram-v2
     [*] --> Created: Create room
 
@@ -105,7 +105,7 @@ stateDiagram-v2
     Closed --> Expired: Cleanup timeout
 
     Expired --> [*]
-
+```
 
 ## Technical Decisions and Trade-offs
 

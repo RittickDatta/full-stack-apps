@@ -1,9 +1,6 @@
 # ChatRoom
 
-A lightweight real-time chat application built with React,
-TypeScript, Express, and Socket.IO.
-
-It is a full-stack, real-time chat application built with React, TypeScript, Express, and Socket.IO. It features temporary rooms, live messaging, participant presence, creator controls, shared validation, automated tests, and cloud deployment.
+ChatRoom is a full-stack, lightweight real-time chat application built with React, TypeScript, Express, and Socket.IO. It features temporary rooms, live messaging, participant presence, creator controls, shared validation, automated tests, and cloud deployment.
 
 ## Features (planned)
 
@@ -27,7 +24,6 @@ It is a full-stack, real-time chat application built with React, TypeScript, Exp
 | Monorepo                | npm workspaces                        |
 | Backend testing         | Node.js built-in test runner          |
 | End-to-end testing      | Playwright                            |
-| Logging                 | Pino                                  |
 | Frontend deployment     | Vercel                                |
 | Backend deployment      | Render                                |
 
