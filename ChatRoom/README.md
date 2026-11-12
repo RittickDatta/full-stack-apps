@@ -4,6 +4,8 @@
 A lightweight real-time chat application built with React,
 TypeScript, Express, and Socket.IO.
 
+It is a full-stack, real-time chat application built with React, TypeScript, Express, and Socket.IO. It features temporary rooms, live messaging, participant presence, creator controls, shared validation, automated tests, and cloud deployment.
+
 ## Features (planned)
 
 - Create and join rooms using shareable codes
@@ -79,3 +81,16 @@ npm run test:e2e
 - Backend restarts remove active rooms.
 - Sessions are not restored after disconnection.
 - The backend is intended to run as a single instance.
+
+### Keywords
+react
+typescript
+nodejs
+express
+socket-io
+real-time-chat
+full-stack
+vite
+tailwindcss
+playwright
+monorepo
