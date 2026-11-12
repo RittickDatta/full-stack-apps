@@ -1,61 +1,35 @@
 # ChatRoom
 
-**A real-time, room-based chat application built with React, TypeScript, Node.js, Express, and Socket.IO.**
+A lightweight real-time chat application built with React,
+TypeScript, Express, and Socket.IO.
 
-ChatRoom allows users to create temporary chat rooms, share room codes, and exchange messages in real time without creating an account.
+It is a full-stack, real-time chat application built with React, TypeScript, Express, and Socket.IO. It features temporary rooms, live messaging, participant presence, creator controls, shared validation, automated tests, and cloud deployment.
 
-**Live Demo:** [Chatroom](https://chatroom-client-eta.vercel.app/)
+## Features (planned)
 
-**Backend Health:** [API Status](https://roomchat-api.onrender.com/health)
-
-## Features
-
-- **Instant room creation:** Create a temporary room with a unique room code.
-- **Room-code invitations:** Share a code so other users can join.
-- **Real-time messaging:** Send and receive messages instantly using Socket.IO.
-- **Participant presence:** See participants join, leave, and disconnect.
-- **Creator controls:** Start, lock, and close rooms.
-- **Room capacity limits:** Prevent rooms from exceeding their configured participant limit.
-- **Input validation:** Validate room codes, display names, and messages.
-- **Rate limiting:** Protect room and chat operations against excessive requests.
-- **Automatic cleanup:** Expire unused rooms and release server resources.
-- **Responsive interface:** Support desktop and mobile browsers.
-- **Automated testing:** Cover backend behavior and browser workflows.
-- **Production monitoring:** Track server health, connections, and operation outcomes.
-
-## Screenshots
-
-### Landing page
-
-![ChatRoom landing page](docs/screenshots/home.png)
-
-### Room creation
-
-![Create room page](docs/screenshots/create-room.png)
-
-### Real-time chat
-
-![ChatRoom conversation](docs/screenshots/chat-room.png)
-
-### Mobile experience
-
-![ChatRoom mobile interface](docs/screenshots/mobile.png)
+- Create and join rooms using shareable codes
+- Real-time room-based messaging
+- Participant presence
+- Creator-controlled room locking and closure
+- Responsive mobile-first interface
+- Light and dark themes
+- No signup or login required
 
 ## Tech Stack
 
-| Layer | Technologies |
-|---|---|
-| Frontend | React, TypeScript, Vite, Tailwind CSS |
-| Routing | React Router |
-| Backend | Node.js, Express, TypeScript |
-| Real-time communication | Socket.IO |
-| Validation | Zod |
-| Monorepo | npm workspaces |
-| Backend testing | Node.js built-in test runner |
-| End-to-end testing | Playwright |
-| Logging | Pino |
-| Frontend deployment | Vercel |
-| Backend deployment | Render |
+| Layer                   | Technologies                          |
+| ----------------------- | ------------------------------------- |
+| Frontend                | React, TypeScript, Vite, Tailwind CSS |
+| Routing                 | React Router                          |
+| Backend                 | Node.js, Express, TypeScript          |
+| Real-time communication | Socket.IO                             |
+| Validation              | Zod                                   |
+| Monorepo                | npm workspaces                        |
+| Backend testing         | Node.js built-in test runner          |
+| End-to-end testing      | Playwright                            |
+| Logging                 | Pino                                  |
+| Frontend deployment     | Vercel                                |
+| Backend deployment      | Render                                |
 
 ## Architecture
 
@@ -207,22 +181,20 @@ See [Deployment Documentation](docs/deployment.md).
 ## Known Limitations
 
 - Rooms and messages are stored in memory.
-- Restarting the backend removes active rooms.
-- Sessions are not automatically restored after disconnection.
-- The backend is designed for a single instance.
-- Messages are not persisted in a database.
-- Users do not have permanent accounts.
+- Backend restarts remove active rooms.
+- Sessions are not restored after disconnection.
+- The backend is intended to run as a single instance.
 
-## Future Improvements
+### Keywords
 
-- Persistent room and message storage
-- Redis-backed Socket.IO scaling
-- Reconnection and session restoration
-- Message history pagination
-- Additional accessibility testing
-- More advanced monitoring and alerting
-- CI/CD quality gates
-
----
-
-Built as a full-stack portfolio project to demonstrate real-time communication, typed API contracts, backend architecture, security, testing, and deployment.
+react
+typescript
+nodejs
+express
+socket-io
+real-time-chat
+full-stack
+vite
+tailwindcss
+playwright
+monorepo
