@@ -24,7 +24,6 @@ ChatRoom is a full-stack, lightweight real-time chat application built with Reac
 | Monorepo                | npm workspaces                        |
 | Backend testing         | Node.js built-in test runner          |
 | End-to-end testing      | Playwright                            |
-| Logging                 | Pino                                  |
 | Frontend deployment     | Vercel                                |
 | Backend deployment      | Render                                |
 
